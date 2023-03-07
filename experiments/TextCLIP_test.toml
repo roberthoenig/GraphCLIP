@@ -1,0 +1,20 @@
+model = "TextCLIP"
+dataset = "MSCOCO"
+seed = 123456
+device = "cuda:0"
+type = "eval"
+
+[eval_args]
+ks = [1, 5, 10]
+
+[dataset_args]
+image_path = "datasets/mscoco/val2017"
+ann_path = "datasets/mscoco/annotations_trainval2017/annotations/captions_val2017.json"
+n_samples = "all" # number or "all"
+
+[model_args]
+model_name = "RN50"
+pretrained = "openai"
+
+# model_name = "ViT-g-14"
+# pretrained = "laion2b_s12b_b42k"

@@ -1,0 +1,7 @@
+open_clip_torch
+pandas
+torch
+numpy
+tqdm 
+torchvision
+toml
