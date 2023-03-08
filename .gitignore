@@ -111,3 +111,4 @@ __pypackages__/
 *.zip
 *.jpg
 datasets/mscoco
+.env
