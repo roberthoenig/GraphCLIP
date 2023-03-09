@@ -41,9 +41,9 @@ def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path):
     return data
 
 class VisualGenome(InMemoryDataset):
-    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None, enc_cfg=None, n_samples_process="all"):
+    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None, enc_cfg=None, n_samples="all"):
         self.enc_cfg = enc_cfg
-        self.n_samples_process = n_samples_process
+        self.n_samples = n_samples
         super().__init__(root, transform, pre_transform, pre_filter)
         self.data, self.slices = torch.load(self.processed_paths[0])
 
@@ -53,7 +53,7 @@ class VisualGenome(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return [f"data_{self.n_samples_process}_{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}.pt"]
+        return [f"data_{self.n_samples}_{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}.pt"]
 
     def download(self):
         # Download to `self.raw_dir`.
@@ -74,8 +74,8 @@ class VisualGenome(InMemoryDataset):
         logging.info("Loading scene graph JSON file...")
         with open(osp.join(self.raw_dir, "scene_graphs.json"), 'r') as f:
             scene_graphs_dict = json.load(f)
-        if not self.n_samples_process == "all":
-            scene_graphs_dict = scene_graphs_dict[:self.n_samples_process]
+        if not self.n_samples == "all":
+            scene_graphs_dict = scene_graphs_dict[:self.n_samples]
         logging.info("Processing scene graphs into PyG graphs...")
         
         model, _, preprocess = open_clip.create_model_and_transforms(model_name=self.enc_cfg["model_name"], pretrained=self.enc_cfg["pretrained"], device=self.enc_cfg["device"])
