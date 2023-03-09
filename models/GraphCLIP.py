@@ -9,6 +9,10 @@ import torch
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv, global_mean_pool
 from torch_geometric.loader import DataLoader
+from utils.train_utils import contrastive_loss
+import logging
+import numpy as np
+import os.path as osp
 
 class GNN():
     def __init__(self):
@@ -46,43 +50,43 @@ class GraphCLIP():
         # Optimizer
         optimizer = torch.optim.Adam(model.parameters(), lr=self.config["train_args"]["learning_rate"])
         # Training
-        total_loss = total_examples = 0
-        for data in train_dloader:
-            data = data.to(self.config["device"])
-            optimizer.zero_grad()
-            loss = contrastive_loss(model(data.x, data.adj_t), data.y)
-            loss.backward()
-            optimizer.step()
-            total_loss += loss.item() * data.num_nodes
-        return total_loss / total_examples
+        pbar_epochs = tqdm(range(self.config["train_args"]["epochs"]), position=0)
+        for epoch in pbar_epochs:
+            # Train
+            train_losses = []
+            mov_avg_train_loss = 0
+            pbar_train = tqdm(train_dloader, position=1, leave=False)
+            for data in pbar_train:
+                data = data.to(self.config["device"])
+                optimizer.zero_grad()
+                loss = contrastive_loss(model(data), data.y)
+                loss.backward()
+                optimizer.step()
+                train_losses.append(loss.item())
+                mov_avg_train_loss = 0.9 * mov_avg_train_loss + 0.1 * loss.item()
+                pbar_train.set_postfix({'moving average train_loss': mov_avg_train_loss})
+            # Validate
+            val_losses = []
+            mov_avg_val_loss = 0
+            pbar_val = tqdm(val_dloader, position=1, leave=False)
+            for data in pbar_val:
+                with torch.no_grad():
+                    data = data.to(self.config["device"])
+                    loss = contrastive_loss(model(data), data.y)
+                    val_losses.append(loss.item())
+                mov_avg_val_loss = 0.9 * mov_avg_val_loss + 0.1 * loss.item()
+                pbar_train.set_postfix({'moving average val_loss': mov_avg_val_loss})
+            # Log
+            train_loss = np.mean(train_losses)
+            val_loss = np.mean(val_losses)
+            pbar_epochs.set_postfix({'train_loss': train_loss, 'val_loss': val_loss})
+            logging.info(f"Epoch {epoch}, average train_loss: {train_loss}, average val_loss: {val_loss}")
+            # Checkpoint
+            if (epoch+1) % self.config["train_args"]["epochs_per_checkpoint"] == 0:
+                logging.info(f"Saving checkpoint...")
+                model.cpu()
+                torch.save(model, osp.join(self.config["experiment_dir"], f"checkpoint_{epoch+1}.pt"))
+                model.to(self.config["device"])
         
     def eval(self):
-        # Model
-        model_name = self.config["model_args"]["model_name"]
-        pretrained = self.config["model_args"]["pretrained"]
-        model, _, preprocess = open_clip.create_model_and_transforms(model_name=model_name, pretrained=pretrained, device=self.config["device"])
-        tokenizer = open_clip.get_tokenizer(model_name=model_name)
-        
-        # Dataset
-        if self.config["dataset"] == "MSCOCO":
-            dataset = MSCOCO(**self.config["dataset_args"])
-        else:
-            raise Exception(f"Unkown dataset {self.config['dataset']}.")
-        
-        # Compute features
-        with torch.no_grad(), torch.cuda.amp.autocast():
-            # (n_samples, emb_sz) 
-            print("Computing image embeddings.")
-            img_features = torch.concat([model.encode_image(preprocess(Image.open(path)).to(self.config["device"]).unsqueeze(0)).cpu() for path in tqdm(dataset.img_paths)])
-            # (n_samples, captions_per_image, emb_sz) 
-            print("Computing caption embeddings.")
-            cap_features = torch.stack([model.encode_text(tokenizer(captions).to(self.config["device"])).cpu() for captions in tqdm(dataset.captions)])
-            img_features /= img_features.norm(dim=-1, keepdim=True)
-            cap_features /= cap_features.norm(dim=-1, keepdim=True)
-
-        # Compute metrics
-        compute_ranking_metrics_from_features(
-            img_features=img_features,
-            cap_features=cap_features,
-            ks=self.config['eval_args']['ks']
-        )
+        raise NotImplementedError

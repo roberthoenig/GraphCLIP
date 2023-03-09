@@ -1,0 +1,20 @@
+model = "TextCLIP"
+dataset = "VisualGenome"
+seed = 123456
+device = "cuda:0"
+type = "train"
+
+[train_args]
+epochs = 2
+batch_size = 2
+learning_rate = 0.001
+train_val_split = 0.9
+epochs_per_checkpoint = 2
+
+[dataset_args]
+root = "datasets/visual_genome"
+n_samples = 100
+[dataset_args.enc_cfg]
+model_name = "RN50"
+pretrained = "openai"
+device = "cpu"
