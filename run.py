@@ -4,6 +4,7 @@ import logging
 import pprint
 
 from models.TextCLIP import TextCLIP
+from models.GraphCLIP import GraphCLIP
 from utils.experiment_utils import init_logger, prep_experiment_dir, load_experiment_config, init_seeds
 
 def main() -> None:
@@ -28,6 +29,8 @@ Run an experiment.
 
     if config["model"] == "TextCLIP":
         model = TextCLIP(config)
+    elif config["model"] == "GraphCLIP":
+        model = GraphCLIP(config)
     else:
         raise Exception(f"Unknown model {config['model']}")
     if config["type"] == "train":

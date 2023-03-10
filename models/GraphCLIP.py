@@ -14,7 +14,7 @@ import logging
 import numpy as np
 import os.path as osp
 
-class GNN():
+class GNN(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.conv1 = GCNConv(1024, 256)
@@ -36,7 +36,11 @@ class GraphCLIP():
         
     def train(self):
         # Model
-        model = GNN().to(self.config["device"])
+        if "load_checkpoint_path" in self.config["train_args"] and not self.config["train_args"]["load_checkpoint_path"] == "":
+            model = torch.load(self.config["train_args"]["load_checkpoint_path"])
+        else:
+            model = GNN()
+        model.to(self.config["device"])
         model.train()
         # Dataset
         if self.config["dataset"] == "VisualGenome":
@@ -46,7 +50,7 @@ class GraphCLIP():
         train_ratio = self.config["train_args"]["train_val_split"]
         train_set, val_set = torch.utils.data.random_split(dataset, [train_ratio, 1-train_ratio])
         train_dloader = DataLoader(train_set, batch_size=self.config["train_args"]["batch_size"], shuffle=True)
-        val_dloader = DataLoader(val_set, batch_size=1, shuffle=False)
+        val_dloader = DataLoader(val_set, batch_size=self.config["train_args"]["batch_size"], shuffle=False)
         # Optimizer
         optimizer = torch.optim.Adam(model.parameters(), lr=self.config["train_args"]["learning_rate"])
         # Training
@@ -81,7 +85,7 @@ class GraphCLIP():
             val_loss = np.mean(val_losses)
             pbar_epochs.set_postfix({'train_loss': train_loss, 'val_loss': val_loss})
             logging.info(f"Epoch {epoch}, average train_loss: {train_loss}, average val_loss: {val_loss}")
-            # Checkpoint
+            # Save Checkpoint
             if (epoch+1) % self.config["train_args"]["epochs_per_checkpoint"] == 0:
                 logging.info(f"Saving checkpoint...")
                 model.cpu()

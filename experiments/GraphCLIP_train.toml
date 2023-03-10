@@ -1,20 +1,21 @@
-model = "TextCLIP"
+model = "GraphCLIP"
 dataset = "VisualGenome"
 seed = 123456
 device = "cuda:0"
 type = "train"
 
 [train_args]
-epochs = 2
+epochs = 10
 batch_size = 2
 learning_rate = 0.001
 train_val_split = 0.9
 epochs_per_checkpoint = 2
+load_checkpoint_path = ""
 
 [dataset_args]
 root = "datasets/visual_genome"
-n_samples = 100
+n_samples = 1000
 [dataset_args.enc_cfg]
 model_name = "RN50"
 pretrained = "openai"
-device = "cpu"
+device = "cuda:0"
