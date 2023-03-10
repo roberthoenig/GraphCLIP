@@ -112,3 +112,5 @@ __pypackages__/
 *.jpg
 datasets/mscoco
 .env
+
+notes.md
