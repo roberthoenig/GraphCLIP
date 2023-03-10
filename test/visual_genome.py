@@ -6,9 +6,9 @@ enc_cfg = {
     "pretrained": "openai",
     "device":  "cuda:0",
 }
-n_samples_process = 2
+n_samples = 2
 
-dataset = VisualGenome(root=root, enc_cfg=enc_cfg, n_samples_process=100)
+dataset = VisualGenome(root=root, enc_cfg=enc_cfg, n_samples=n_samples)
 
 print(dataset[0].x.shape)
 print(dataset[0].edge_attr.shape)
