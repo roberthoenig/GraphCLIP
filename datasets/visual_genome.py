@@ -31,7 +31,14 @@ def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path):
     if len(d['relationships']) == 0:
         edge_attr = torch.zeros(0, 1024)
     else:
-        edge_attr = txt_enc([rel['predicate'] for rel in d['relationships']])
+        rel_txts = []
+        for rel in d['relationships']:
+            subj_txt = d['objects'][id_to_idx[rel['subject_id']]]['names'][0]
+            obj_txt = d['objects'][id_to_idx[rel['object_id']]]['names'][0]
+            rel_txt = rel['predicate']
+            compound_txt = " ".join([subj_txt, rel_txt, obj_txt])
+            rel_txts.append(compound_txt)
+        edge_attr = txt_enc(rel_txts)
     
     data = Data(x=x, edge_attr=edge_attr, edge_index=edge_index, y=y)
     return data
