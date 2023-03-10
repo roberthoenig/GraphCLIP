@@ -91,7 +91,7 @@ class VisualGenome(InMemoryDataset):
                 return model.encode_text(tokenizer(txts).to(self.enc_cfg["device"])).cpu()
         
         image_id_to_path = dict()
-        for dir in [Path(self.raw_dir)/"images"/"VG_100K", Path(self.raw_dir)/"images2"/"VG_100K_2"]:
+        for dir in [Path(self.raw_dir)/"VG_100K", Path(self.raw_dir)/"VG_100K_2"]:
             pathlist = dir.glob('*.jpg')
             for path in pathlist:
                 img_id = int(path.stem)
