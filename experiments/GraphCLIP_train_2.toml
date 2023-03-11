@@ -1,0 +1,22 @@
+model = "GraphCLIP"
+dataset = "VisualGenome"
+seed = 123456
+device = "cuda:0"
+type = "train"
+
+[train_args]
+epochs = 10
+batch_size = 2
+learning_rate = 0.001
+train_val_split = 0.9
+epochs_per_checkpoint = 2
+load_checkpoint_path = ""
+
+[dataset_args]
+root = "datasets/visual_genome"
+n_samples = "all"
+pre_filter = "remove_edgeless_graphs"
+[dataset_args.enc_cfg]
+model_name = "ViT-g-14"
+pretrained = "laion2b_s12b_b42k"
+device = "cuda:0"
