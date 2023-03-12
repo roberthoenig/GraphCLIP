@@ -3,6 +3,7 @@ from PIL import Image
 import open_clip
 from datasets.mscoco import MSCOCO
 from datasets.visual_genome import VisualGenome
+from utils.dataset_utils import dataset_postprocessor
 from utils.eval_utils import compute_ranking_metrics_from_features
 from tqdm import tqdm
 import torch
@@ -47,6 +48,7 @@ class GraphCLIP():
             dataset = VisualGenome(**self.config["dataset_args"])
         else:
             raise Exception(f"Unkown dataset {self.config['dataset']}.")
+        dataset = dataset_postprocessor(dataset, **self.config["dataset_postprocessor_args"])
         train_ratio = self.config["train_args"]["train_val_split"]
         train_set, val_set = torch.utils.data.random_split(dataset, [train_ratio, 1-train_ratio])
         train_dloader = DataLoader(train_set, batch_size=self.config["train_args"]["batch_size"], shuffle=True)

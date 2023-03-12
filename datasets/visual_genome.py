@@ -43,19 +43,10 @@ def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path):
     data = Data(x=x, edge_attr=edge_attr, edge_index=edge_index, y=y)
     return data
 
-def is_not_edgeless(data):
-    return data.edge_index.shape[1] > 0
-
 class VisualGenome(InMemoryDataset):
     def __init__(self, root, transform=None, pre_transform=None, pre_filter=None, enc_cfg=None, n_samples="all"):
         self.enc_cfg = enc_cfg
         self.n_samples = n_samples
-        if pre_filter == "remove_edgeless_graphs":
-            pre_filter = is_not_edgeless
-        elif pre_filter is None:
-            pass
-        else:
-            raise Exception(f"Unknown pre-filter {pre_filter}")
         super().__init__(root, transform, pre_transform, pre_filter)
         self.data, self.slices = torch.load(self.processed_paths[0])
 
