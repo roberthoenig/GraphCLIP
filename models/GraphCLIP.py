@@ -8,7 +8,7 @@ from utils.eval_utils import compute_ranking_metrics_from_features
 from tqdm import tqdm
 import torch
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, global_mean_pool
+from torch_geometric.nn import GCNConv, global_mean_pool, GATv2Conv
 from torch_geometric.loader import DataLoader
 from utils.train_utils import contrastive_loss
 import logging
@@ -31,6 +31,26 @@ class GNN(torch.nn.Module):
 
         return x
 
+class GNN2(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv1 = GATv2Conv(1024, 512, heads=2, concat=False, edge_dim=1024)
+        self.conv2 = GATv2Conv(512, 512, heads=2, concat=False, edge_dim=1024)
+        self.conv3 = GATv2Conv(512, 1024, heads=2, concat=False, edge_dim=1024)
+        # self.conv2 = GATv2Conv(256, 1024, heads=2, concat=False, edge_dim=1024)
+
+    def forward(self, data):
+        x, edge_index, batch = data.x, data.edge_index, data.batch
+
+        x = self.conv1(x, edge_index)
+        x = F.relu(x)
+        x = self.conv2(x, edge_index)
+        x = F.relu(x)
+        x = self.conv3(x, edge_index)
+        x = global_mean_pool(x, batch)
+
+        return x
+
 class GraphCLIP():
     def __init__(self, config):
         self.config = config
@@ -40,7 +60,13 @@ class GraphCLIP():
         if "load_checkpoint_path" in self.config["train_args"] and not self.config["train_args"]["load_checkpoint_path"] == "":
             model = torch.load(self.config["train_args"]["load_checkpoint_path"])
         else:
-            model = GNN()
+            arch = self.config["model_args"]["architecture"]
+            if arch == "GNN":
+                model = GNN()
+            elif arch == "GNN2":
+                model = GNN2()
+            else:
+                raise Exception(f"Unknown architecture {arch}.")
         model.to(self.config["device"])
         model.train()
         # Dataset

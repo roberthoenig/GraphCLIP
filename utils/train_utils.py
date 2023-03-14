@@ -13,5 +13,6 @@ def contrastive_loss(y_pred, y_gt):
         labels = labels.to(y_pred.get_device())
     loss_1 = cross_entropy(input=logits, target=labels)
     loss_2 = cross_entropy(input=logits.transpose(0,1), target=labels) 
+    # TODO: divide loss by batch size?
     loss = (loss_1 + loss_2)/2
     return loss

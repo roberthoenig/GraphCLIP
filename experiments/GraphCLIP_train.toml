@@ -4,6 +4,9 @@ seed = 123456
 device = "cuda:0"
 type = "train"
 
+[model_args]
+architecture = "GNN"
+
 [train_args]
 epochs = 10
 batch_size = 2
@@ -19,3 +22,6 @@ n_samples = 1000
 model_name = "RN50"
 pretrained = "openai"
 device = "cuda:0"
+
+[dataset_postprocessor_args]
+filter = "remove_edgeless_graphs"
