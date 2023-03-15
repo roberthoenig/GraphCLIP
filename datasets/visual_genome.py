@@ -10,7 +10,7 @@ from PIL import Image
 from torch_geometric.data import Data
 from pathlib import Path
 
-
+# Embeds text with CLIP
 def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path):
     # y: [1, num_img_features]
     # TODO: normalize?
@@ -56,7 +56,7 @@ class VisualGenome(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return [f"data_{self.n_samples}_{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}.pt"]
+        return [f"data_{self.n_samples}_{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_use_clip_latents={self.enc_cfg['use_clip_latents']}.pt"]
 
     def download(self):
         # Download to `self.raw_dir`.
@@ -86,9 +86,19 @@ class VisualGenome(InMemoryDataset):
         def img_enc(img_paths):
             with torch.no_grad():
                 return model.encode_image(torch.stack([preprocess(Image.open(p)) for p in img_paths]).to(self.enc_cfg["device"])).cpu()
-        def txt_enc(txts):
+        def clip_latent_txt_enc(txts):
             with torch.no_grad():
                 return model.encode_text(tokenizer(txts).to(self.enc_cfg["device"])).cpu()
+        def clip_embedding_txt_enc(txts):
+           with torch.no_grad():
+                tokens = tokenizer(txts).to(self.enc_cfg["device"])
+                tokens[tokens == 49407] = 0
+                tokens = tokens[:, 1:3]
+                out =  model.token_embedding(tokens)
+                out = out.reshape(len(txts), -1).cpu()
+                return out
+                
+        txt_enc = clip_latent_txt_enc if self.enc_cfg["use_clip_latents"] else clip_embedding_txt_enc
         
         image_id_to_path = dict()
         for dir in [Path(self.raw_dir)/"VG_100K", Path(self.raw_dir)/"VG_100K_2"]:
