@@ -95,7 +95,7 @@ class VisualGenome(InMemoryDataset):
                 tokens[tokens == 49407] = 0
                 tokens = tokens[:, 1:3]
                 out =  model.token_embedding(tokens)
-                out = out.reshape(len(txts), -1).cpu()
+                out = out.reshape(len(txts), 1024).cpu()
                 return out
                 
         txt_enc = clip_latent_txt_enc if self.enc_cfg["use_clip_latents"] else clip_embedding_txt_enc
