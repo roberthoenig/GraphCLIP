@@ -119,6 +119,41 @@ class GraphCLIP():
                 model.cpu()
                 torch.save(model, osp.join(self.config["experiment_dir"], f"checkpoint_{epoch+1}.pt"))
                 model.to(self.config["device"])
-        
+    
     def eval(self):
-        raise NotImplementedError
+        # Model
+        model = torch.load(self.config["eval_args"]["load_checkpoint_path"])
+        model.to(self.config["device"])
+        model.eval()
+        
+        # Dataset
+        if self.config["dataset"] == "VisualGenome":
+            dataset = VisualGenome(**self.config["dataset_args"])
+            dataset = dataset_postprocessor(dataset, **self.config["dataset_postprocessor_args"])
+            train_ratio = self.config["eval_args"]["train_val_split"]
+            _, val_set = torch.utils.data.random_split(dataset, [train_ratio, 1-train_ratio])
+            val_dloader = DataLoader(val_set, batch_size=1, shuffle=False)
+        else:
+            raise Exception(f"Unkown dataset {self.config['dataset']}.")
+        
+        # Compute features
+        with torch.no_grad(), torch.cuda.amp.autocast():
+            # (n_samples, emb_sz) 
+            print("Computing image embeddings.")
+            img_features = torch.concat([model(data.to(self.config["device"])).cpu() for data in tqdm(val_dloader)])
+            img_features /= img_features.norm(dim=-1, keepdim=True)
+            # (n_samples, captions_per_image, emb_sz) 
+            print("Computing caption embeddings.")
+            cap_features = torch.concat([data.y.cpu() for data in tqdm(val_dloader)])
+            cap_features /= cap_features.norm(dim=-1, keepdim=True)
+            cap_features = cap_features.unsqueeze(1)
+            
+        print("cap_features.shape", cap_features.shape)
+        print("img_features.shape", img_features.shape)
+
+        # Compute metrics
+        compute_ranking_metrics_from_features(
+            img_features=img_features,
+            cap_features=cap_features,
+            ks=self.config['eval_args']['ks']
+        )
