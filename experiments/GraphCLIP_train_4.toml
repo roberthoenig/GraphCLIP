@@ -7,13 +7,14 @@ type = "train"
 [model_args]
 architecture = "GNN2"
 [model_args.arch_args]
-in_dim = 1024
+in_dim = 2048
 out_dim = 1024
-edge_dim = 1024
+edge_dim = 2048
+middle_dim = 512
 
 [train_args]
 epochs = 10
-batch_size = 2
+batch_size = 128
 learning_rate = 0.001
 train_val_split = 0.9
 epochs_per_checkpoint = 2
@@ -21,12 +22,11 @@ load_checkpoint_path = ""
 
 [dataset_args]
 root = "datasets/visual_genome"
-n_samples = 1000
+n_samples = "all"
 [dataset_args.enc_cfg]
-emb_dim = 1024
-model_name = "RN50"
-pretrained = "openai"
-use_clip_latents = false
+emb_dim = 2048
+model_name = "ViT-g-14"
+pretrained = "laion2b_s12b_b42k"
 device = "cuda:0"
 
 [dataset_postprocessor_args]

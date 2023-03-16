@@ -11,7 +11,7 @@ from torch_geometric.data import Data
 from pathlib import Path
 
 # Embeds text with CLIP
-def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path):
+def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, emb_dim):
     # y: [1, num_img_features]
     # TODO: normalize?
     y = img_enc([image_id_to_path[d['image_id']]])
@@ -29,7 +29,7 @@ def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path):
         edge_index[:, ctr] = torch.tensor([id_to_idx[rel['subject_id']], id_to_idx[rel['object_id']]])
     # edge_attr: [num_edges, num_txt_features]
     if len(d['relationships']) == 0:
-        edge_attr = torch.zeros(0, 1024)
+        edge_attr = torch.zeros(0, emb_dim)
     else:
         rel_txts = []
         for rel in d['relationships']:
@@ -81,6 +81,8 @@ class VisualGenome(InMemoryDataset):
             scene_graphs_dict = scene_graphs_dict[:self.n_samples]
         logging.info("Processing scene graphs into PyG graphs...")
         
+        emb_dim = self.enc_cfg["emb_dim"]
+        
         model, _, preprocess = open_clip.create_model_and_transforms(model_name=self.enc_cfg["model_name"], pretrained=self.enc_cfg["pretrained"], device=self.enc_cfg["device"])
         tokenizer = open_clip.get_tokenizer(model_name=self.enc_cfg["model_name"])
         def img_enc(img_paths):
@@ -95,7 +97,7 @@ class VisualGenome(InMemoryDataset):
                 tokens[tokens == 49407] = 0
                 tokens = tokens[:, 1:3]
                 out =  model.token_embedding(tokens)
-                out = out.reshape(len(txts), 1024).cpu()
+                out = out.reshape(len(txts), emb_dim).cpu()
                 return out
                 
         txt_enc = clip_latent_txt_enc if self.enc_cfg["use_clip_latents"] else clip_embedding_txt_enc
@@ -107,7 +109,8 @@ class VisualGenome(InMemoryDataset):
                 img_id = int(path.stem)
                 image_id_to_path[img_id] = str(path)
             
-        data_list = [dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path) for d in tqdm(scene_graphs_dict)]
+        data_list = [dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, emb_dim)
+                     for d in tqdm(scene_graphs_dict)]
 
         if self.pre_filter is not None:
             data_list = [data for data in data_list if self.pre_filter(data)]

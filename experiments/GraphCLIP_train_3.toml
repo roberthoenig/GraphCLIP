@@ -10,6 +10,7 @@ architecture = "GNN2"
 in_dim = 1024
 out_dim = 1024
 edge_dim = 1024
+middle_dim = 512
 
 [train_args]
 epochs = 10
@@ -21,7 +22,7 @@ load_checkpoint_path = ""
 
 [dataset_args]
 root = "datasets/visual_genome"
-n_samples = 1000
+n_samples = 200
 [dataset_args.enc_cfg]
 emb_dim = 1024
 model_name = "RN50"

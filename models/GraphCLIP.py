@@ -17,10 +17,10 @@ import os.path as osp
 import torch.nn as nn
 
 class GNN(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, in_dim, out_dim):
         super().__init__()
-        self.conv1 = GCNConv(1024, 256)
-        self.conv2 = GCNConv(256, 1024)
+        self.conv1 = GCNConv(in_dim, 256)
+        self.conv2 = GCNConv(256, out_dim)
         self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
     def forward(self, data):
@@ -34,11 +34,11 @@ class GNN(torch.nn.Module):
         return x
 
 class GNN2(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, in_dim, out_dim, edge_dim, middle_dim):
         super().__init__()
-        self.conv1 = GATv2Conv(1024, 512, heads=2, concat=False, edge_dim=1024)
-        self.conv2 = GATv2Conv(512, 512, heads=2, concat=False, edge_dim=1024)
-        self.conv3 = GATv2Conv(512, 1024, heads=2, concat=False, edge_dim=1024)
+        self.conv1 = GATv2Conv(in_dim, middle_dim, heads=2, concat=False, edge_dim=edge_dim)
+        self.conv2 = GATv2Conv(middle_dim, middle_dim, heads=2, concat=False, edge_dim=edge_dim)
+        self.conv3 = GATv2Conv(middle_dim, out_dim, heads=2, concat=False, edge_dim=edge_dim)
         # self.conv2 = GATv2Conv(256, 1024, heads=2, concat=False, edge_dim=1024)
         self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
@@ -65,9 +65,9 @@ class GraphCLIP():
         else:
             arch = self.config["model_args"]["architecture"]
             if arch == "GNN":
-                model = GNN()
+                model = GNN(**self.config["model_args"]["arch_args"])
             elif arch == "GNN2":
-                model = GNN2()
+                model = GNN2(**self.config["model_args"]["arch_args"])
             else:
                 raise Exception(f"Unknown architecture {arch}.")
         model.to(self.config["device"])
