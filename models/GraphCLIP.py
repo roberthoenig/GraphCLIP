@@ -14,12 +14,14 @@ from utils.train_utils import contrastive_loss
 import logging
 import numpy as np
 import os.path as osp
+import torch.nn as nn
 
 class GNN(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.conv1 = GCNConv(1024, 256)
         self.conv2 = GCNConv(256, 1024)
+        self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
     def forward(self, data):
         x, edge_index, batch = data.x, data.edge_index, data.batch
@@ -38,6 +40,7 @@ class GNN2(torch.nn.Module):
         self.conv2 = GATv2Conv(512, 512, heads=2, concat=False, edge_dim=1024)
         self.conv3 = GATv2Conv(512, 1024, heads=2, concat=False, edge_dim=1024)
         # self.conv2 = GATv2Conv(256, 1024, heads=2, concat=False, edge_dim=1024)
+        self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
     def forward(self, data):
         x, edge_index, batch = data.x, data.edge_index, data.batch
@@ -91,7 +94,7 @@ class GraphCLIP():
             for data in pbar_train:
                 data = data.to(self.config["device"])
                 optimizer.zero_grad()
-                loss = contrastive_loss(model(data), data.y)
+                loss = contrastive_loss(model(data), data.y, model.logit_scale)
                 loss.backward()
                 optimizer.step()
                 train_losses.append(loss.item())
@@ -104,7 +107,7 @@ class GraphCLIP():
             for data in pbar_val:
                 with torch.no_grad():
                     data = data.to(self.config["device"])
-                    loss = contrastive_loss(model(data), data.y)
+                    loss = contrastive_loss(model(data), data.y, model.logit_scale)
                     val_losses.append(loss.item())
                 mov_avg_val_loss = 0.9 * mov_avg_val_loss + 0.1 * loss.item()
                 pbar_train.set_postfix({'moving average val_loss': mov_avg_val_loss})
