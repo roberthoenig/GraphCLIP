@@ -72,6 +72,9 @@ class GraphCLIP():
                 raise Exception(f"Unknown architecture {arch}.")
         model.to(self.config["device"])
         model.train()
+        model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+        model_sz = sum([np.prod(p.size()) for p in model_parameters])
+        logging.info(f"Model size: {model_sz} parameters.")
         # Dataset
         if self.config["dataset"] == "VisualGenome":
             dataset = VisualGenome(**self.config["dataset_args"])
