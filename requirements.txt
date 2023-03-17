@@ -1,10 +1,12 @@
 open_clip_torch
 pandas
-torch
 numpy
 tqdm 
-torchvision
 toml
+-i https://download.pytorch.org/whl/cu117
+torch==1.13.0+cu117
+torchvision==0.14.0+cu117
+torchaudio==0.13.0
 -f https://data.pyg.org/whl/torch-1.13.0+cu117.html
 pyg_lib
 torch_scatter
