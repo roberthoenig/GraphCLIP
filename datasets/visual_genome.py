@@ -105,7 +105,7 @@ class VisualGenome(InMemoryDataset):
             for d in tqdm(scene_graphs_dict):
                 img_path = image_id_to_path[d['image_id']]
                 with torch.no_grad():
-                    img_enc = model.encode_image(preprocess(Image.open(img_path)).unsqueeze(0)).to(self.enc_cfg["device"]).cpu()
+                    img_enc = model.encode_image(preprocess(Image.open(img_path)).unsqueeze(0).to(self.enc_cfg["device"])).cpu()
                     cached_img_enc[img_path] = img_enc
             torch.save(cached_img_enc, cached_img_enc_path)
         cached_img_enc = torch.load(cached_img_enc_path)
