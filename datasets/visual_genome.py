@@ -11,10 +11,10 @@ from torch_geometric.data import Data
 from pathlib import Path
 
 # Embeds text with CLIP
-def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, emb_dim):
+def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, emb_dim, metadata):
     # y: [1, num_img_features]
     # TODO: normalize?
-    y = img_enc([image_id_to_path[d['image_id']]])
+    y = img_enc(image_id_to_path[d['image_id']])
     # x: [num_nodes, num_txt_features]
     id_to_idx = {}
     # TODO: deal with multiple object names?
@@ -40,7 +40,8 @@ def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, emb_dim):
             rel_txts.append(compound_txt)
         edge_attr = txt_enc(rel_txts)
     
-    data = Data(x=x, edge_attr=edge_attr, edge_index=edge_index, y=y)
+    num = metadata['coco_id'] if metadata['coco_id'] is not None else -1
+    data = Data(x=x, edge_attr=edge_attr, edge_index=edge_index, y=y, coco_id=torch.tensor([num], dtype=torch.long))
     return data
 
 class VisualGenome(InMemoryDataset):
@@ -52,43 +53,65 @@ class VisualGenome(InMemoryDataset):
 
     @property
     def raw_file_names(self):
-        return ['scene_graphs.json.zip', 'images.zip', 'images2.zip']
+        return ['scene_graphs.json.zip', 'images.zip', 'images2.zip', 'image_data.json.zip']
 
     @property
     def processed_file_names(self):
-        return [f"data_{self.n_samples}_{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_use_clip_latents={self.enc_cfg['use_clip_latents']}.pt"]
+        return [f"data_{self.n_samples}_{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_use_clip_latents={self.enc_cfg['use_clip_latents']}_coco_annotated.pt"]
 
     def download(self):
         # Download to `self.raw_dir`.
-        scene_graphs_url = "http://visualgenome.org/static/data/dataset/scene_graphs.json.zip"
-        download_url(scene_graphs_url, self.raw_dir)
-        unzip_file(self.raw_paths[0], self.raw_dir)
-        
-        images_1_url = "https://cs.stanford.edu/people/rak248/VG_100K_2/images.zip"
-        download_url(images_1_url, self.raw_dir)
-        unzip_file(self.raw_paths[1], self.raw_dir)
-        
-        images_2_url = "https://cs.stanford.edu/people/rak248/VG_100K_2/images2.zip"
-        download_url(images_2_url, self.raw_dir)
-        unzip_file(self.raw_paths[2], self.raw_dir)
+        def download_and_unzip_if_not_exist(url, idx):
+            path = osp.join(self.raw_dir, self.raw_file_names[idx])
+            if not osp.isfile(path):
+                download_url(url, self.raw_dir)
+                unzip_file(self.raw_paths[idx], self.raw_dir)
+            else:
+                print(f"{path} already exists, skipping download.")
+        download_and_unzip_if_not_exist("http://visualgenome.org/static/data/dataset/scene_graphs.json.zip", 0)
+        download_and_unzip_if_not_exist("https://cs.stanford.edu/people/rak248/VG_100K_2/images.zip", 1)
+        download_and_unzip_if_not_exist("https://cs.stanford.edu/people/rak248/VG_100K_2/images2.zip", 2)
+        download_and_unzip_if_not_exist("http://visualgenome.org/static/data/dataset/image_data.json.zip", 3)
 
     def process(self):
         # Read data into huge `Data` list.
         logging.info("Loading scene graph JSON file...")
         with open(osp.join(self.raw_dir, "scene_graphs.json"), 'r') as f:
             scene_graphs_dict = json.load(f)
+        logging.info("Loading image data JSON file...")
+        with open(osp.join(self.raw_dir, "image_data.json"), 'r') as f:
+            image_data_dict = json.load(f)
         if not self.n_samples == "all":
             scene_graphs_dict = scene_graphs_dict[:self.n_samples]
+            image_data_dict = image_data_dict[:self.n_samples]
         logging.info("Processing scene graphs into PyG graphs...")
         
         emb_dim = self.enc_cfg["emb_dim"]
         
         model, _, preprocess = open_clip.create_model_and_transforms(model_name=self.enc_cfg["model_name"], pretrained=self.enc_cfg["pretrained"], device=self.enc_cfg["device"])
         tokenizer = open_clip.get_tokenizer(model_name=self.enc_cfg["model_name"])
-        def img_enc(img_paths):
-            with torch.no_grad():
-                return model.encode_image(torch.stack([preprocess(Image.open(p)) for p in img_paths]).to(self.enc_cfg["device"])).cpu()
-        def clip_latent_txt_enc(txts):
+
+        image_id_to_path = dict()
+        for dir in [Path(self.raw_dir)/"VG_100K", Path(self.raw_dir)/"VG_100K_2"]:
+            pathlist = dir.glob('*.jpg')
+            for path in pathlist:
+                img_id = int(path.stem)
+                image_id_to_path[img_id] = str(path)
+
+        cached_img_enc_path = osp.join(self.processed_dir, f"{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_img_enc_cache.pt")
+        if not osp.exists(cached_img_enc_path):
+            logging.info("Embedding images with CLIP...")
+            cached_img_enc = dict()  
+            for d in tqdm(scene_graphs_dict):
+                img_path = image_id_to_path[d['image_id']]
+                with torch.no_grad():
+                    img_enc = model.encode_image(preprocess(Image.open(img_path)).unsqueeze(0)).to(self.enc_cfg["device"]).cpu()
+                    cached_img_enc[img_path] = img_enc
+            torch.save(cached_img_enc, cached_img_enc_path)
+        cached_img_enc = torch.load(cached_img_enc_path)
+        def img_enc_fn(img_path):
+            return cached_img_enc[img_path]
+        def clip_latent_txt_enc_fn(txts):
             with torch.no_grad():
                 return model.encode_text(tokenizer(txts).to(self.enc_cfg["device"])).cpu()
         def clip_embedding_txt_enc(txts):
@@ -100,17 +123,10 @@ class VisualGenome(InMemoryDataset):
                 out = out.reshape(len(txts), emb_dim).cpu()
                 return out
                 
-        txt_enc = clip_latent_txt_enc if self.enc_cfg["use_clip_latents"] else clip_embedding_txt_enc
-        
-        image_id_to_path = dict()
-        for dir in [Path(self.raw_dir)/"VG_100K", Path(self.raw_dir)/"VG_100K_2"]:
-            pathlist = dir.glob('*.jpg')
-            for path in pathlist:
-                img_id = int(path.stem)
-                image_id_to_path[img_id] = str(path)
-            
-        data_list = [dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, emb_dim)
-                     for d in tqdm(scene_graphs_dict)]
+        txt_enc_fn = clip_latent_txt_enc_fn if self.enc_cfg["use_clip_latents"] else clip_embedding_txt_enc
+        logging.info("Producing PyG graphs...")
+        data_list = [dict_to_pyg_graph(d, img_enc_fn, txt_enc_fn, image_id_to_path, emb_dim, metadata)
+                     for d, metadata in tqdm(zip(scene_graphs_dict, image_data_dict))]
 
         if self.pre_filter is not None:
             data_list = [data for data in data_list if self.pre_filter(data)]

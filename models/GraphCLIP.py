@@ -1,7 +1,4 @@
 import torch
-from PIL import Image
-import open_clip
-from datasets.mscoco import MSCOCO
 from datasets.visual_genome import VisualGenome
 from utils.dataset_utils import dataset_postprocessor
 from utils.eval_utils import compute_ranking_metrics_from_features
@@ -81,8 +78,13 @@ class GraphCLIP():
         else:
             raise Exception(f"Unkown dataset {self.config['dataset']}.")
         dataset = dataset_postprocessor(dataset, **self.config["dataset_postprocessor_args"])
-        train_ratio = self.config["train_args"]["train_val_split"]
-        train_set, val_set = torch.utils.data.random_split(dataset, [train_ratio, 1-train_ratio])
+        train_val_split = self.config["train_args"]["train_val_split"]
+        if train_val_split == "mscoco":
+            train_set = dataset_postprocessor(dataset, filter="remove_mscoco")
+            val_set = dataset_postprocessor(dataset, filter="keep_mscoco")
+        else:
+            train_ratio = train_val_split
+            train_set, val_set = torch.utils.data.random_split(dataset, [train_ratio, 1-train_ratio])
         train_dloader = DataLoader(train_set, batch_size=self.config["train_args"]["batch_size"], shuffle=True)
         val_dloader = DataLoader(val_set, batch_size=self.config["train_args"]["batch_size"], shuffle=False)
         # Optimizer
@@ -136,7 +138,11 @@ class GraphCLIP():
         if self.config["dataset"] == "VisualGenome":
             dataset = VisualGenome(**self.config["dataset_args"])
             dataset = dataset_postprocessor(dataset, **self.config["dataset_postprocessor_args"])
-            train_ratio = self.config["eval_args"]["train_val_split"]
+            train_val_split = self.config["train_args"]["train_val_split"]
+            if train_val_split == "mscoco":
+                val_set = dataset_postprocessor(dataset, filter="keep_mscoco")
+            else:
+                train_ratio = train_val_split
             _, val_set = torch.utils.data.random_split(dataset, [train_ratio, 1-train_ratio])
             val_dloader = DataLoader(val_set, batch_size=1, shuffle=False)
         else:
@@ -145,18 +151,15 @@ class GraphCLIP():
         # Compute features
         with torch.no_grad(), torch.cuda.amp.autocast():
             # (n_samples, emb_sz) 
-            print("Computing image embeddings.")
+            logging.info("Computing image embeddings.")
             img_features = torch.concat([model(data.to(self.config["device"])).cpu() for data in tqdm(val_dloader)])
             img_features /= img_features.norm(dim=-1, keepdim=True)
             # (n_samples, captions_per_image, emb_sz) 
-            print("Computing caption embeddings.")
+            logging.info("Computing caption embeddings.")
             cap_features = torch.concat([data.y.cpu() for data in tqdm(val_dloader)])
             cap_features /= cap_features.norm(dim=-1, keepdim=True)
             cap_features = cap_features.unsqueeze(1)
             
-        print("cap_features.shape", cap_features.shape)
-        print("img_features.shape", img_features.shape)
-
         # Compute metrics
         compute_ranking_metrics_from_features(
             img_features=img_features,
