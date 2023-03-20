@@ -98,7 +98,7 @@ class VisualGenome(InMemoryDataset):
                 img_id = int(path.stem)
                 image_id_to_path[img_id] = str(path)
 
-        cached_img_enc_path = osp.join(self.processed_dir, f"{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_img_enc_cache.pt")
+        cached_img_enc_path = osp.join(self.processed_dir, f"{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_{self.n_samples}_img_enc_cache.pt")
         if not osp.exists(cached_img_enc_path):
             logging.info("Embedding images with CLIP...")
             cached_img_enc = dict()  
