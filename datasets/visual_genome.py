@@ -11,7 +11,7 @@ from torch_geometric.data import Data
 from pathlib import Path
 
 # Embeds text with CLIP
-def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, emb_dim, metadata):
+def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, emb_dim, metadata, coco_val_ids):
     # y: [1, num_img_features]
     # TODO: normalize?
     y = img_enc(image_id_to_path[d['image_id']])
@@ -40,8 +40,10 @@ def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, emb_dim, metadata):
             rel_txts.append(compound_txt)
         edge_attr = txt_enc(rel_txts)
     
-    num = metadata['coco_id'] if metadata['coco_id'] is not None else -1
-    data = Data(x=x, edge_attr=edge_attr, edge_index=edge_index, y=y, coco_id=torch.tensor([num], dtype=torch.long))
+    coco_id = metadata['coco_id'] if metadata['coco_id'] is not None else -1
+    in_coco_val = coco_id in coco_val_ids
+    data = Data(x=x, edge_attr=edge_attr, edge_index=edge_index, y=y,
+        coco_id=torch.tensor([coco_id], dtype=torch.long), in_coco_val=torch.tensor([in_coco_val], dtype=torch.bool))
     return data
 
 class VisualGenome(InMemoryDataset):
@@ -53,7 +55,7 @@ class VisualGenome(InMemoryDataset):
 
     @property
     def raw_file_names(self):
-        return ['scene_graphs.json.zip', 'images.zip', 'images2.zip', 'image_data.json.zip']
+        return ['scene_graphs.json.zip', 'images.zip', 'images2.zip', 'image_data.json.zip', 'annotations_trainval2017.zip']
 
     @property
     def processed_file_names(self):
@@ -72,6 +74,7 @@ class VisualGenome(InMemoryDataset):
         download_and_unzip_if_not_exist("https://cs.stanford.edu/people/rak248/VG_100K_2/images.zip", 1)
         download_and_unzip_if_not_exist("https://cs.stanford.edu/people/rak248/VG_100K_2/images2.zip", 2)
         download_and_unzip_if_not_exist("http://visualgenome.org/static/data/dataset/image_data.json.zip", 3)
+        download_and_unzip_if_not_exist("http://images.cocodataset.org/annotations/annotations_trainval2017.zip", 4)
 
     def process(self):
         # Read data into huge `Data` list.
@@ -98,6 +101,11 @@ class VisualGenome(InMemoryDataset):
                 img_id = int(path.stem)
                 image_id_to_path[img_id] = str(path)
 
+        with open(osp.join(self.raw_dir, "annotations", "instances_val2017.json"), 'r') as f:
+            mscoco_val_dict = json.load(f)
+            print(mscoco_val_dict.keys())
+            coco_val_ids = [int(Path(o['file_name']).stem) for o in mscoco_val_dict['images']]
+        print("coco_val_ids", coco_val_ids)
         cached_img_enc_path = osp.join(self.processed_dir, f"{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_{self.n_samples}_img_enc_cache.pt")
         if not osp.exists(cached_img_enc_path):
             logging.info("Embedding images with CLIP...")
@@ -121,11 +129,10 @@ class VisualGenome(InMemoryDataset):
                 tokens = tokens[:, 1:3]
                 out =  model.token_embedding(tokens)
                 out = out.reshape(len(txts), emb_dim).cpu()
-                return out
-                
+                return out                
         txt_enc_fn = clip_latent_txt_enc_fn if self.enc_cfg["use_clip_latents"] else clip_embedding_txt_enc
         logging.info("Producing PyG graphs...")
-        data_list = [dict_to_pyg_graph(d, img_enc_fn, txt_enc_fn, image_id_to_path, emb_dim, metadata)
+        data_list = [dict_to_pyg_graph(d, img_enc_fn, txt_enc_fn, image_id_to_path, emb_dim, metadata, coco_val_ids)
                      for d, metadata in tqdm(zip(scene_graphs_dict, image_data_dict))]
 
         if self.pre_filter is not None:

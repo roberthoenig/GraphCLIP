@@ -8,16 +8,16 @@ def unzip_file(zip_path, target_dir):
 def is_not_edgeless(data):
     return data.edge_index.shape[1] > 0      
 
-def in_mscoco(data):
-    return data.coco_id.item() != -1
+def in_mscoco_val(data):
+    return data.in_coco_val.item()
 
 def dataset_postprocessor(dataset, filter=None):
     if filter == "remove_edgeless_graphs":
         filter_fn = is_not_edgeless
-    elif filter == "remove_mscoco":
-        filter_fn = lambda x: not in_mscoco(x)
-    elif filter == "keep_mscoco":
-        filter_fn = in_mscoco
+    elif filter == "remove_mscoco_val":
+        filter_fn = lambda x: not in_mscoco_val(x)
+    elif filter == "keep_mscoco_val":
+        filter_fn = in_mscoco_val
     elif filter is None:
         filter_fn = lambda x: True
     else:
