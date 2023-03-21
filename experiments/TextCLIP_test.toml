@@ -10,6 +10,7 @@ ks = [1, 5, 10]
 [dataset_args]
 image_path = "datasets/mscoco/val2017"
 ann_path = "datasets/mscoco/annotations_trainval2017/annotations/captions_val2017.json"
+id_path = "datasets/mscoco/overlap.json"
 n_samples = "all" # number or "all"
 
 [model_args]

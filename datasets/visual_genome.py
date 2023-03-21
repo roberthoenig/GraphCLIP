@@ -103,7 +103,6 @@ class VisualGenome(InMemoryDataset):
 
         with open(osp.join(self.raw_dir, "annotations", "instances_val2017.json"), 'r') as f:
             mscoco_val_dict = json.load(f)
-            print(mscoco_val_dict.keys())
             coco_val_ids = [int(Path(o['file_name']).stem) for o in mscoco_val_dict['images']]
         print("coco_val_ids", coco_val_ids)
         cached_img_enc_path = osp.join(self.processed_dir, f"{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_{self.n_samples}_img_enc_cache.pt")
