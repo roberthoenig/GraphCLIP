@@ -140,7 +140,7 @@ class GraphCLIP():
             dataset = dataset_postprocessor(dataset, **self.config["dataset_postprocessor_args"])
             train_val_split = self.config["eval_args"]["train_val_split"]
             if train_val_split == "mscoco":
-                val_set = dataset_postprocessor(dataset, filter="keep_mscoco")
+                val_set = dataset_postprocessor(dataset, filter="keep_mscoco_val")
             else:
                 train_ratio = train_val_split
             _, val_set = torch.utils.data.random_split(dataset, [train_ratio, 1-train_ratio])
