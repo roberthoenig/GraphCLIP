@@ -143,7 +143,7 @@ class GraphCLIP():
                 val_set = dataset_postprocessor(dataset, filter="keep_mscoco_val")
             else:
                 train_ratio = train_val_split
-            _, val_set = torch.utils.data.random_split(dataset, [train_ratio, 1-train_ratio])
+                _, val_set = torch.utils.data.random_split(dataset, [train_ratio, 1-train_ratio])
             val_dloader = DataLoader(val_set, batch_size=1, shuffle=False)
         else:
             raise Exception(f"Unkown dataset {self.config['dataset']}.")
