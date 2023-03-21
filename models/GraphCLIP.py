@@ -138,7 +138,7 @@ class GraphCLIP():
         if self.config["dataset"] == "VisualGenome":
             dataset = VisualGenome(**self.config["dataset_args"])
             dataset = dataset_postprocessor(dataset, **self.config["dataset_postprocessor_args"])
-            train_val_split = self.config["train_args"]["train_val_split"]
+            train_val_split = self.config["eval_args"]["train_val_split"]
             if train_val_split == "mscoco":
                 val_set = dataset_postprocessor(dataset, filter="keep_mscoco")
             else:
