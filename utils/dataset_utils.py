@@ -3,6 +3,8 @@ import zipfile
 from torch.utils import data
 from torch_geometric.data import Data
 import torch
+from tqdm import tqdm
+import logging
 
 def unzip_file(zip_path, target_dir):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
@@ -26,7 +28,8 @@ def dataset_filter(dataset, filter=None):
         filter_fn = lambda x: True
     else:
         raise Exception(f"Unknown filter {filter}")
-    filtered_indexes = [i for i in range(len(dataset)) if filter_fn(dataset[i])]
+    logging.info("Filtering dataset...")
+    filtered_indexes = [i for i in tqdm(range(len(dataset))) if filter_fn(dataset[i])]
     filtered_dataset = data.Subset(dataset, filtered_indexes)
     return filtered_dataset
 
