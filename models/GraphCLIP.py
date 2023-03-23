@@ -175,12 +175,13 @@ class GraphCLIP():
             # (n_samples, emb_sz) 
             logging.info("Computing image embeddings.")
             img_features = torch.concat([model(data.to(self.config["device"])).cpu() for data in tqdm(val_dloader)])
-            img_features /= img_features.norm(dim=-1, keepdim=True)
             # (n_samples, captions_per_image, emb_sz) 
             logging.info("Computing caption embeddings.")
             cap_features = torch.concat([data.y.cpu() for data in tqdm(val_dloader)])
-            cap_features /= cap_features.norm(dim=-1, keepdim=True)
             cap_features = cap_features.unsqueeze(1)
+            if self.config["eval_args"]["normalize"]:
+                cap_features /= cap_features.norm(dim=-1, keepdim=True)
+                img_features /= img_features.norm(dim=-1, keepdim=True)
             
         # Compute metrics
         compute_ranking_metrics_from_features(

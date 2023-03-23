@@ -7,7 +7,7 @@ type = "eval"
 [dataset_args]
 root = "datasets/visual_genome"
 n_samples = "all"
-transform = "add_master_node"
+transform = "add_master_node_with_bidirectional_edges"
 [dataset_args.enc_cfg]
 model_name = "ViT-g-14"
 pretrained = "laion2b_s12b_b42k"
@@ -18,6 +18,7 @@ device = "cuda:0"
 ks = [1, 5, 10]
 train_val_split = "mscoco"
 load_checkpoint_path = ""
+normalize = false
 
 [dataset_filter_args]
 filter = "remove_edgeless_graphs"

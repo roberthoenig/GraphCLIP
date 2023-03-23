@@ -23,7 +23,7 @@ load_checkpoint_path = ""
 [dataset_args]
 root = "datasets/visual_genome"
 n_samples = "all"
-transform = "add_master_node_with_bidirectional_edges"
+transform = "add_master_node_with_incoming_edges"
 [dataset_args.enc_cfg]
 emb_dim = 2048
 # model_name = "RN50"

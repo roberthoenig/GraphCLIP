@@ -1,6 +1,6 @@
 import torch
 from torch_geometric.data import InMemoryDataset, download_url
-from utils.dataset_utils import unzip_file, add_master_node
+from utils.dataset_utils import add_master_node_with_bidirectional_edges, add_master_node_with_incoming_edges, unzip_file
 import os.path as osp
 import json
 from tqdm import tqdm
@@ -50,8 +50,10 @@ class VisualGenome(InMemoryDataset):
     def __init__(self, root, transform=None, pre_transform=None, pre_filter=None, enc_cfg=None, n_samples="all"):
         self.enc_cfg = enc_cfg
         self.n_samples = n_samples
-        if transform == "add_master_node":
-            transform_fn = add_master_node
+        if transform == "add_master_node_with_bidirectional_edges":
+            transform_fn = add_master_node_with_bidirectional_edges
+        if transform == "add_master_node_with_incoming_edges":
+            transform_fn = add_master_node_with_incoming_edges
         elif transform is None:
             transform_fn = lambda x: x
         else:

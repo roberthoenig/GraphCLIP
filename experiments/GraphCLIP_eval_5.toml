@@ -17,6 +17,7 @@ device = "cuda:0"
 ks = [1, 5, 10]
 train_val_split = "mscoco"
 load_checkpoint_path = ""
+normalize = false
 
 [dataset_filter_args]
 filter = "remove_edgeless_graphs"
