@@ -52,7 +52,7 @@ class VisualGenome(InMemoryDataset):
         self.n_samples = n_samples
         if transform == "add_master_node_with_bidirectional_edges":
             transform_fn = add_master_node_with_bidirectional_edges
-        if transform == "add_master_node_with_incoming_edges":
+        elif transform == "add_master_node_with_incoming_edges":
             transform_fn = add_master_node_with_incoming_edges
         elif transform is None:
             transform_fn = lambda x: x
