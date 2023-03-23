@@ -22,7 +22,7 @@ load_checkpoint_path = ""
 
 [dataset_args]
 root = "datasets/visual_genome"
-n_samples = 20
+n_samples = "all"
 transform = "add_master_node"
 [dataset_args.enc_cfg]
 emb_dim = 2048

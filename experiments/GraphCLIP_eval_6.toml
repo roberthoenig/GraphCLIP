@@ -1,0 +1,23 @@
+model = "GraphCLIP"
+dataset = "VisualGenome"
+seed = 123456
+device = "cuda:0"
+type = "eval"
+
+[dataset_args]
+root = "datasets/visual_genome"
+n_samples = "all"
+transform = "add_master_node"
+[dataset_args.enc_cfg]
+model_name = "ViT-g-14"
+pretrained = "laion2b_s12b_b42k"
+use_clip_latents = false
+device = "cuda:0"
+
+[eval_args]
+ks = [1, 5, 10]
+train_val_split = "mscoco"
+load_checkpoint_path = ""
+
+[dataset_filter_args]
+filter = "remove_edgeless_graphs"
