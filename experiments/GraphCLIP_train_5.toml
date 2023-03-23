@@ -30,5 +30,5 @@ pretrained = "laion2b_s12b_b42k"
 use_clip_latents = false
 device = "cuda:0"
 
-[dataset_postprocessor_args]
+[dataset_filter_args]
 filter = "remove_edgeless_graphs"

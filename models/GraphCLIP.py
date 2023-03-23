@@ -1,6 +1,6 @@
 import torch
 from datasets.visual_genome import VisualGenome
-from utils.dataset_utils import dataset_postprocessor
+from utils.dataset_utils import dataset_filter
 from utils.eval_utils import compute_ranking_metrics_from_features
 from tqdm import tqdm
 import torch
@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from torch_geometric.nn import GCNConv, global_mean_pool, GATv2Conv
 from torch_geometric.loader import DataLoader
 from utils.train_utils import contrastive_loss
+from utils.model_utils import global_master_pool
 import logging
 import numpy as np
 import os.path as osp
@@ -51,6 +52,25 @@ class GNN2(torch.nn.Module):
 
         return x
 
+# Like GNN2, but works with master node
+class GNN3(torch.nn.Module):
+    def __init__(self, in_dim, out_dim, edge_dim, middle_dim):
+        super().__init__()
+        self.conv1 = GATv2Conv(in_dim, middle_dim, heads=2, concat=False, edge_dim=edge_dim)
+        self.conv2 = GATv2Conv(middle_dim, middle_dim, heads=2, concat=False, edge_dim=edge_dim)
+        self.conv3 = GATv2Conv(middle_dim, out_dim, heads=2, concat=False, edge_dim=edge_dim)
+        self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
+
+    def forward(self, data):
+        x, edge_index, batch = data.x, data.edge_index, data.batch
+        x = self.conv1(x, edge_index)
+        x = F.relu(x)
+        x = self.conv2(x, edge_index)
+        x = F.relu(x)
+        x = self.conv3(x, edge_index)
+        x = global_master_pool(x, batch)
+        return x
+
 class GraphCLIP():
     def __init__(self, config):
         self.config = config
@@ -65,6 +85,8 @@ class GraphCLIP():
                 model = GNN(**self.config["model_args"]["arch_args"])
             elif arch == "GNN2":
                 model = GNN2(**self.config["model_args"]["arch_args"])
+            elif arch == "GNN3":
+                model = GNN3(**self.config["model_args"]["arch_args"])
             else:
                 raise Exception(f"Unknown architecture {arch}.")
         model.to(self.config["device"])
@@ -77,11 +99,11 @@ class GraphCLIP():
             dataset = VisualGenome(**self.config["dataset_args"])
         else:
             raise Exception(f"Unkown dataset {self.config['dataset']}.")
-        dataset = dataset_postprocessor(dataset, **self.config["dataset_postprocessor_args"])
+        dataset = dataset_filter(dataset, **self.config["dataset_filter_args"])
         train_val_split = self.config["train_args"]["train_val_split"]
         if train_val_split == "mscoco":
-            train_set = dataset_postprocessor(dataset, filter="remove_mscoco_val")
-            val_set = dataset_postprocessor(dataset, filter="keep_mscoco_val")
+            train_set = dataset_filter(dataset, filter="remove_mscoco_val")
+            val_set = dataset_filter(dataset, filter="keep_mscoco_val")
         else:
             train_ratio = train_val_split
             train_set, val_set = torch.utils.data.random_split(dataset, [train_ratio, 1-train_ratio])
@@ -137,10 +159,10 @@ class GraphCLIP():
         # Dataset
         if self.config["dataset"] == "VisualGenome":
             dataset = VisualGenome(**self.config["dataset_args"])
-            dataset = dataset_postprocessor(dataset, **self.config["dataset_postprocessor_args"])
+            dataset = dataset_filter(dataset, **self.config["dataset_filter_args"])
             train_val_split = self.config["eval_args"]["train_val_split"]
             if train_val_split == "mscoco":
-                val_set = dataset_postprocessor(dataset, filter="keep_mscoco_val")
+                val_set = dataset_filter(dataset, filter="keep_mscoco_val")
             else:
                 train_ratio = train_val_split
                 _, val_set = torch.utils.data.random_split(dataset, [train_ratio, 1-train_ratio])

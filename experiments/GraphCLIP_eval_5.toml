@@ -18,5 +18,5 @@ ks = [1, 5, 10]
 train_val_split = "mscoco"
 load_checkpoint_path = ""
 
-[dataset_postprocessor_args]
+[dataset_filter_args]
 filter = "remove_edgeless_graphs"

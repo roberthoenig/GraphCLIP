@@ -1,6 +1,6 @@
 import torch
 from torch_geometric.data import InMemoryDataset, download_url
-from utils.dataset_utils import unzip_file
+from utils.dataset_utils import unzip_file, add_master_node
 import os.path as osp
 import json
 from tqdm import tqdm
@@ -50,7 +50,13 @@ class VisualGenome(InMemoryDataset):
     def __init__(self, root, transform=None, pre_transform=None, pre_filter=None, enc_cfg=None, n_samples="all"):
         self.enc_cfg = enc_cfg
         self.n_samples = n_samples
-        super().__init__(root, transform, pre_transform, pre_filter)
+        if transform == "add_master_node":
+            transform_fn = add_master_node
+        elif transform is None:
+            transform_fn = lambda x: x
+        else:
+            raise Exception(f"Unknown transform {transform}.")
+        super().__init__(root, transform_fn, pre_transform, pre_filter)
         self.data, self.slices = torch.load(self.processed_paths[0])
 
     @property
