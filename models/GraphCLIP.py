@@ -7,6 +7,7 @@ import torch
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv, global_mean_pool, GATv2Conv
 from torch_geometric.loader import DataLoader
+from torch_geometric.utils import dropout_node
 from utils.train_utils import contrastive_loss
 from utils.model_utils import global_master_pool
 import logging
@@ -71,6 +72,27 @@ class GNN3(torch.nn.Module):
         x = global_master_pool(x, batch)
         return x
 
+# Like GNN3, but uses dropout
+class GNN4(torch.nn.Module):
+    def __init__(self, in_dim, out_dim, edge_dim, middle_dim, p_dropout):
+        super().__init__()
+        self.conv1 = GATv2Conv(in_dim, middle_dim, heads=2, concat=False, edge_dim=edge_dim)
+        self.conv2 = GATv2Conv(middle_dim, middle_dim, heads=2, concat=False, edge_dim=edge_dim)
+        self.conv3 = GATv2Conv(middle_dim, out_dim, heads=2, concat=False, edge_dim=edge_dim)
+        self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
+        self.p_dropout = p_dropout
+
+    def forward(self, data):
+        x, edge_index, batch = data.x, data.edge_index, data.batch
+        edge_index, _, _ = dropout_node(edge_index, training=self.training, p=self.p_dropout)
+        x = self.conv1(x, edge_index)
+        x = F.relu(x)
+        x = self.conv2(x, edge_index)
+        x = F.relu(x)
+        x = self.conv3(x, edge_index)
+        x = global_master_pool(x, batch)
+        return x
+
 class GraphCLIP():
     def __init__(self, config):
         self.config = config
@@ -87,6 +109,8 @@ class GraphCLIP():
                 model = GNN2(**self.config["model_args"]["arch_args"])
             elif arch == "GNN3":
                 model = GNN3(**self.config["model_args"]["arch_args"])
+            elif arch == "GNN4":
+                model = GNN4(**self.config["model_args"]["arch_args"])
             else:
                 raise Exception(f"Unknown architecture {arch}.")
         model.to(self.config["device"])
