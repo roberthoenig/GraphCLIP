@@ -93,6 +93,26 @@ class GNN4(torch.nn.Module):
         x = global_master_pool(x, batch)
         return x
 
+# Like GNN3, but uses dropout in GATv2Conv
+class GNN5(torch.nn.Module):
+    def __init__(self, in_dim, out_dim, edge_dim, middle_dim, p_dropout):
+        super().__init__()
+        self.conv1 = GATv2Conv(in_dim, middle_dim, heads=2, concat=False, edge_dim=edge_dim, dropout=p_dropout)
+        self.conv2 = GATv2Conv(middle_dim, middle_dim, heads=2, concat=False, edge_dim=edge_dim, dropout=p_dropout)
+        self.conv3 = GATv2Conv(middle_dim, out_dim, heads=2, concat=False, edge_dim=edge_dim, dropout=p_dropout)
+        self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
+        self.p_dropout = p_dropout
+
+    def forward(self, data):
+        x, edge_index, batch = data.x, data.edge_index, data.batch
+        x = self.conv1(x, edge_index)
+        x = F.relu(x)
+        x = self.conv2(x, edge_index)
+        x = F.relu(x)
+        x = self.conv3(x, edge_index)
+        x = global_master_pool(x, batch)
+        return x
+
 class GraphCLIP():
     def __init__(self, config):
         self.config = config
@@ -111,6 +131,8 @@ class GraphCLIP():
                 model = GNN3(**self.config["model_args"]["arch_args"])
             elif arch == "GNN4":
                 model = GNN4(**self.config["model_args"]["arch_args"])
+            elif arch == "GNN5":
+                model = GNN5(**self.config["model_args"]["arch_args"])
             else:
                 raise Exception(f"Unknown architecture {arch}.")
         model.to(self.config["device"])
