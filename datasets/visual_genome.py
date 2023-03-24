@@ -18,15 +18,20 @@ def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, emb_dim, metadata, 
     # x: [num_nodes, num_txt_features]
     id_to_idx = {}
     # TODO: deal with multiple object names?
-    # TODO: deal with object attributes?
-    # TODO: normalize?
+    n_obj_nodes = len(d['objects'])
     x = txt_enc([obj['names'][0] for obj in d['objects']])
+    attrs, attr_to_x = zip(*[(attr, idx) for (idx, o) in enumerate(d['objects']) for attr in o.get('attributes', [])])
+    n_attrs = len(attrs)
+    attrs = txt_enc(attrs)
     for idx, obj in enumerate(d['objects']):
         id_to_idx[obj['object_id']] = idx
     # edge_index: [2, num_edges]
     edge_index = torch.zeros((2, len(d['relationships'])), dtype=torch.long)
     for ctr, rel in enumerate(d['relationships']):
         edge_index[:, ctr] = torch.tensor([id_to_idx[rel['subject_id']], id_to_idx[rel['object_id']]])
+    attrs_edge_index = torch.zeros((2, n_attrs), dtype=torch.long)
+    for attr_idx, x_idx in enumerate(attr_to_x):
+        attrs_edge_index[:, attr_idx] = torch.tensor([attr_idx+n_obj_nodes, x_idx])
     # edge_attr: [num_edges, num_txt_features]
     if len(d['relationships']) == 0:
         edge_attr = torch.zeros(0, emb_dim)
@@ -39,11 +44,18 @@ def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, emb_dim, metadata, 
             compound_txt = " ".join([subj_txt, rel_txt, obj_txt])
             rel_txts.append(compound_txt)
         edge_attr = txt_enc(rel_txts)
+    attrs_edge_attr = torch.sin(2*torch.arange(0, emb_dim).repeat(n_attrs, 1))
     
     coco_id = metadata['coco_id'] if metadata['coco_id'] is not None else -1
     in_coco_val = coco_id in coco_val_ids
-    data = Data(x=x, edge_attr=edge_attr, edge_index=edge_index, y=y,
-        coco_id=torch.tensor([coco_id], dtype=torch.long), in_coco_val=torch.tensor([in_coco_val], dtype=torch.bool))
+    data = Data(x=torch.cat([x, attrs]),
+        edge_attr=torch.cat([edge_attr, attrs_edge_attr]),
+        edge_index=torch.cat([edge_index, attrs_edge_index], dim=1),
+        y=y,
+        obj_nodes=torch.arange(0, n_obj_nodes),
+        coco_id=torch.tensor([coco_id], dtype=torch.long),
+        in_coco_val=torch.tensor([in_coco_val], dtype=torch.bool)
+    )
     return data
 
 class VisualGenome(InMemoryDataset):
@@ -67,7 +79,7 @@ class VisualGenome(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return [f"data_{self.n_samples}_{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_use_clip_latents={self.enc_cfg['use_clip_latents']}_coco_annotated.pt"]
+        return [f"data_{self.n_samples}_{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_use_clip_latents={self.enc_cfg['use_clip_latents']}_coco_annotated_with_attributes.pt"]
 
     def download(self):
         # Download to `self.raw_dir`.
@@ -112,7 +124,6 @@ class VisualGenome(InMemoryDataset):
         with open(osp.join(self.raw_dir, "annotations", "instances_val2017.json"), 'r') as f:
             mscoco_val_dict = json.load(f)
             coco_val_ids = [int(Path(o['file_name']).stem) for o in mscoco_val_dict['images']]
-        print("coco_val_ids", coco_val_ids)
         cached_img_enc_path = osp.join(self.processed_dir, f"{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_{self.n_samples}_img_enc_cache.pt")
         if not osp.exists(cached_img_enc_path):
             logging.info("Embedding images with CLIP...")

@@ -38,7 +38,7 @@ def add_master_node_with_bidirectional_edges(data):
     n_nodes = data.x.shape[0]
     new_node = torch.ones(1, n_node_features, dtype=torch.float32)
     x = torch.cat([data.x, new_node])
-    new_edges = torch.tensor([[n_nodes, t] for t in range(n_nodes)] + [[t, n_nodes] for t in range(n_nodes)], dtype=torch.int).t()
+    new_edges = torch.tensor([[n_nodes, t] for t in data.obj_nodes.tolist()] + [[t, n_nodes] for t in data.obj_nodes.tolist()], dtype=torch.int).t()
     edge_index = torch.cat([data.edge_index, new_edges], dim=1)
     n_edge_features = data.edge_attr.shape[1]
     edge_attr = torch.cat([data.edge_attr, torch.ones(n_nodes, n_edge_features), torch.sin(torch.arange(0, n_edge_features).repeat(n_nodes, 1))])
@@ -56,7 +56,7 @@ def add_master_node_with_incoming_edges(data):
     n_nodes = data.x.shape[0]
     new_node = torch.ones(1, n_node_features, dtype=torch.float32)
     x = torch.cat([data.x, new_node])
-    new_edges = torch.tensor([[t, n_nodes] for t in range(n_nodes)], dtype=torch.int).t()
+    new_edges = torch.tensor([[t, n_nodes] for t in data.obj_nodes.tolist()], dtype=torch.int).t()
     edge_index = torch.cat([data.edge_index, new_edges], dim=1)
     n_edge_features = data.edge_attr.shape[1]
     edge_attr = torch.cat([data.edge_attr, torch.ones(n_nodes, n_edge_features)])
