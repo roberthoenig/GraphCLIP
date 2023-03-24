@@ -8,7 +8,7 @@ from tqdm import tqdm
 def get_recall_at_k(ranks, k, relevant_idx, n_relevant):
     assert k <= len(ranks)
     count_relevant = (ranks[relevant_idx] < k).sum()
-    percentage = count_relevant / n_relevant
+    percentage = count_relevant.item() / n_relevant
     return percentage
 
 # precision at k
@@ -16,7 +16,7 @@ def get_recall_at_k(ranks, k, relevant_idx, n_relevant):
 def get_precision_at_k(ranks, k, relevant_idx):
     assert k <= len(ranks)
     count_relevant = (ranks[relevant_idx] < k).sum()
-    percentage = count_relevant / k
+    percentage = count_relevant.item() / k
     return percentage
 
 # img_features: (n_samples, emb_sz) 
