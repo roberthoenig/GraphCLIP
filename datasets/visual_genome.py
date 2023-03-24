@@ -20,9 +20,17 @@ def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, emb_dim, metadata, 
     # TODO: deal with multiple object names?
     n_obj_nodes = len(d['objects'])
     x = txt_enc([obj['names'][0] for obj in d['objects']])
-    attrs, attr_to_x = zip(*[(attr, idx) for (idx, o) in enumerate(d['objects']) for attr in o.get('attributes', [])])
+    attrs = []
+    attr_to_x = []
+    for idx, o in enumerate(d['objects']):
+        for attr in o.get('attributes', []):
+            attrs.append(attr)
+            attr_to_x.append(idx)
     n_attrs = len(attrs)
-    attrs = txt_enc(attrs)
+    if n_attrs == 0:
+        attrs = torch.zeros(0, emb_dim)
+    else:
+        attrs = txt_enc(attrs)
     for idx, obj in enumerate(d['objects']):
         id_to_idx[obj['object_id']] = idx
     # edge_index: [2, num_edges]
