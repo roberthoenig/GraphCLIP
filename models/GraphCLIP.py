@@ -161,6 +161,7 @@ class GraphCLIP():
         pbar_epochs = tqdm(range(self.config["train_args"]["epochs"]), position=0)
         for epoch in pbar_epochs:
             # Train
+            model.train()
             train_losses = []
             mov_avg_train_loss = 0
             pbar_train = tqdm(train_dloader, position=1, leave=False)
@@ -174,6 +175,7 @@ class GraphCLIP():
                 mov_avg_train_loss = 0.9 * mov_avg_train_loss + 0.1 * loss.item()
                 pbar_train.set_postfix({'moving average train_loss': mov_avg_train_loss})
             # Validate
+            model.eval()
             val_losses = []
             mov_avg_val_loss = 0
             pbar_val = tqdm(val_dloader, position=1, leave=False)
