@@ -1,6 +1,6 @@
 import torch
 from datasets.visual_genome import VisualGenome
-from utils.dataset_utils import dataset_filter
+from utils.dataset_utils import dataset_filter, transfer_attributes_batched
 from utils.eval_utils import compute_ranking_metrics_from_features
 from tqdm import tqdm
 import torch
@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from torch_geometric.nn import GCNConv, global_mean_pool, GATv2Conv
 from torch_geometric.loader import DataLoader
 from torch_geometric.utils import dropout_node
-from utils.train_utils import contrastive_loss
+from utils.train_utils import contrastive_adv_loss, contrastive_loss
 from utils.model_utils import global_master_pool
 import logging
 import numpy as np
@@ -157,6 +157,13 @@ class GraphCLIP():
         val_dloader = DataLoader(val_set, batch_size=self.config["train_args"]["batch_size"], shuffle=False)
         # Optimizer
         optimizer = torch.optim.Adam(model.parameters(), lr=self.config["train_args"]["learning_rate"])
+        # Adversarial transform
+        adv_transform = self.config["train_args"].get("adv_transform", None)
+        if adv_transform == "transfer_attributes":
+            adv_transform = transfer_attributes_batched
+        elif adv_transform is not None:
+            logging.info(f"Unknown adversarial transform {adv_transform}.")
+
         # Training
         pbar_epochs = tqdm(range(self.config["train_args"]["epochs"]), position=0)
         for epoch in pbar_epochs:
@@ -166,9 +173,15 @@ class GraphCLIP():
             mov_avg_train_loss = 0
             pbar_train = tqdm(train_dloader, position=1, leave=False)
             for data in pbar_train:
-                data = data.to(self.config["device"])
                 optimizer.zero_grad()
-                loss = contrastive_loss(model(data), data.y, model.logit_scale)
+                if adv_transform is not None:
+                    adv_data = adv_transform(data)
+                    data = data.to(self.config["device"])
+                    loss = contrastive_adv_loss(model(data), model(adv_data), data.y, model.logit_scale)
+                else:
+                    data = data.to(self.config["device"])
+                    loss = contrastive_loss(model(data), data.y, model.logit_scale)
+
                 loss.backward()
                 optimizer.step()
                 train_losses.append(loss.item())

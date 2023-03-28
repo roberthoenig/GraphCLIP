@@ -17,6 +17,24 @@ def contrastive_loss(y_pred, y_gt, logit_scale):
     loss = (loss_1 + loss_2)/2
     return loss
 
+# y_pred: (batch_size, embedding_size)
+# y_adv: (batch_size, embedding_size)
+# y_gt: (batch_size, embedding_size)
+def contrastive_adv_loss(y_pred, y_adv, y_gt, logit_scale):
+    # y_pred = y_pred / torch.norm(y_pred, dim=1).unsqueeze(-1)
+    # y_gt = y_gt / torch.norm(y_gt, dim=1).unsqueeze(-1)
+    logits = logit_scale*torch.matmul(y_pred, y_gt.transpose(0,1))
+    labels = torch.arange(y_pred.shape[0])
+    if y_pred.is_cuda:
+        labels = labels.to(y_pred.get_device())
+    loss_1 = cross_entropy(input=logits, target=labels)
+    adv_logits = torch.sum(y_adv * y_gt, dim=1, keepdim=True)
+    logits_2 = torch.cat([logits.transpose(0,1), adv_logits], dim=1)
+    loss_2 = cross_entropy(input=logits_2, target=labels) 
+    # TODO: divide loss by batch size?
+    loss = (loss_1 + loss_2)/2
+    return loss
+
 def adversarial_relation_loss(y_pred_reliable, y_pred_adversarial, y_gt, logit_scale):
     # y_pred_reliable: (batch_size, embedding_size)
     # y_pred_adversarial: (batch_size, embedding_size)

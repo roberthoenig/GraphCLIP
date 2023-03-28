@@ -1,10 +1,11 @@
 from re import T
 import zipfile
 from torch.utils import data
-from torch_geometric.data import Data
+from torch_geometric.data import Data, Batch
 import torch
 from tqdm import tqdm
 import logging
+import random
 
 def unzip_file(zip_path, target_dir):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
@@ -68,3 +69,27 @@ def add_master_node_with_incoming_edges(data):
     d_orig.update(d)
     data_with_master_node = Data.from_dict(d_orig)
     return data_with_master_node
+
+# !!! Assumes that each attribute has exactly ONE outgoing edge !!!
+def transfer_attributes(data):
+    if len(data.attr_nodes) == 0:
+        return data
+    attr_to_transfer = random.sample(data.attr_nodes.tolist(), 1)[0]
+    node_to_receive = random.sample(data.obj_nodes.tolist(), 1)[0]
+    assert len((data.edge_index[0] == attr_to_transfer).nonzero()) == 1
+    edge_idx = (data.edge_index[0] == attr_to_transfer).nonzero()[0].item()
+    orig_node = data.edge_index[1, edge_idx]
+    # This shouldn't happen too often
+    if orig_node == node_to_receive:
+        return data
+    data.edge_index[1, edge_idx] = node_to_receive
+    return data
+
+def transfer_attributes_batched(batch):
+    return batch_transform(transfer_attributes, batch)
+
+def batch_transform(fn, batch):
+    data_list = batch.to_data_list()
+    transformed_data_list = [fn(data) for data in data_list]
+    transformed_batch = Batch.from_data_list(transformed_data_list)
+    return transformed_batch
