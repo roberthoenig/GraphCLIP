@@ -208,6 +208,7 @@ class GraphCLIP():
                 optimizer.zero_grad()
                 if adv_transform is not None:
                     adv_data = adv_transform(data)
+                    adv_data = adv_data.to(self.config["device"])
                     data = data.to(self.config["device"])
                     loss = contrastive_adv_loss(model(data), model(adv_data), data.y, model.logit_scale)
                 else:
