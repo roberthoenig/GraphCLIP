@@ -16,7 +16,7 @@ model_name = "ViT-g-14"
 pretrained = "laion2b_s12b_b42k"
 
 [train_args]
-epochs = 10
+epochs = 100
 batch_size = 128
 learning_rate = 0.001
 train_val_split = "mscoco"
