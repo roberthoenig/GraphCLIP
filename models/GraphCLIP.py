@@ -126,8 +126,6 @@ class GNN6(torch.nn.Module):
         model, _, _ = open_clip.create_model_and_transforms(model_name=model_name, pretrained=pretrained, device="cpu")
         emb_dim = model.token_embedding.embedding_dim
         new_embs = torch.sin(torch.arange(4, dtype=torch.float).reshape(-1,1) * torch.arange(emb_dim, dtype=torch.float).reshape(1,-1))
-        print("model.token_embedding.weight.shape", model.token_embedding.weight.shape)
-        print("model.new_embs.shape", new_embs.shape)
         weights =  torch.cat([model.token_embedding.weight, new_embs])
         self.embedding = torch.nn.Embedding.from_pretrained(weights)
 
