@@ -11,7 +11,7 @@ from torch_geometric.data import Data
 from pathlib import Path
 
 # Embeds text with CLIP
-def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, emb_dim, metadata, coco_val_ids):
+def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, metadata, coco_val_ids):
     # y: [1, num_img_features]
     # TODO: normalize?
     y = img_enc(image_id_to_path[d['image_id']])
@@ -28,7 +28,7 @@ def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, emb_dim, metadata, 
             attr_to_x.append(idx)
     n_attrs = len(attrs)
     if n_attrs == 0:
-        attrs = torch.zeros(0, emb_dim)
+        attrs = torch.zeros((0, 2), dtype=torch.int64)
     else:
         attrs = txt_enc(attrs)
     for idx, obj in enumerate(d['objects']):
@@ -42,7 +42,7 @@ def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, emb_dim, metadata, 
         attrs_edge_index[:, attr_idx] = torch.tensor([attr_idx+n_obj_nodes, x_idx])
     # edge_attr: [num_edges, num_txt_features]
     if len(d['relationships']) == 0:
-        edge_attr = torch.zeros(0, emb_dim)
+        edge_attr = torch.zeros((0, 2))
     else:
         rel_txts = []
         for rel in d['relationships']:
@@ -52,7 +52,7 @@ def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, emb_dim, metadata, 
             compound_txt = " ".join([subj_txt, rel_txt, obj_txt])
             rel_txts.append(compound_txt)
         edge_attr = txt_enc(rel_txts)
-    attrs_edge_attr = torch.sin(2*torch.arange(0, emb_dim).repeat(n_attrs, 1))
+    attrs_edge_attr = -3*torch.ones((n_attrs, 2), dtype=torch.int64)
     
     coco_id = metadata['coco_id'] if metadata['coco_id'] is not None else -1
     in_coco_val = coco_id in coco_val_ids
@@ -88,7 +88,7 @@ class VisualGenome(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return [f"data_{self.n_samples}_{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_use_clip_latents={self.enc_cfg['use_clip_latents']}_coco_annotated_with_attributes_2.pt"]
+        return [f"data_{self.n_samples}_{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_use_clip_latents={self.enc_cfg['use_clip_latents']}_coco_annotated_with_attributes_4.pt"]
 
     def download(self):
         # Download to `self.raw_dir`.
@@ -117,8 +117,6 @@ class VisualGenome(InMemoryDataset):
             scene_graphs_dict = scene_graphs_dict[:self.n_samples]
             image_data_dict = image_data_dict[:self.n_samples]
         logging.info("Processing scene graphs into PyG graphs...")
-        
-        emb_dim = self.enc_cfg["emb_dim"]
         
         model, _, preprocess = open_clip.create_model_and_transforms(model_name=self.enc_cfg["model_name"], pretrained=self.enc_cfg["pretrained"], device=self.enc_cfg["device"])
         tokenizer = open_clip.get_tokenizer(model_name=self.enc_cfg["model_name"])
@@ -154,12 +152,11 @@ class VisualGenome(InMemoryDataset):
                 tokens = tokenizer(txts).to(self.enc_cfg["device"])
                 tokens[tokens == 49407] = 0
                 tokens = tokens[:, 1:3]
-                out =  model.token_embedding(tokens)
-                out = out.reshape(len(txts), emb_dim).cpu()
+                out = tokens.cpu()
                 return out                
         txt_enc_fn = clip_latent_txt_enc_fn if self.enc_cfg["use_clip_latents"] else clip_embedding_txt_enc
         logging.info("Producing PyG graphs...")
-        data_list = [dict_to_pyg_graph(d, img_enc_fn, txt_enc_fn, image_id_to_path, emb_dim, metadata, coco_val_ids)
+        data_list = [dict_to_pyg_graph(d, img_enc_fn, txt_enc_fn, image_id_to_path, metadata, coco_val_ids)
                      for d, metadata in tqdm(zip(scene_graphs_dict, image_data_dict))]
 
         if self.pre_filter is not None:

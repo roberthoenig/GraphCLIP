@@ -35,14 +35,16 @@ def dataset_filter(dataset, filter=None):
     return filtered_dataset
 
 def add_master_node_with_bidirectional_edges(data):
-    n_node_features = data.x.shape[1]
     n_nodes = data.x.shape[0]
-    new_node = torch.ones(1, n_node_features, dtype=torch.float32)
+    new_node = -4*torch.ones((1, 2), dtype=torch.int64)
     x = torch.cat([data.x, new_node])
     new_edges = torch.tensor([[n_nodes, t] for t in data.obj_nodes.tolist()] + [[t, n_nodes] for t in data.obj_nodes.tolist()], dtype=torch.int).t()
     edge_index = torch.cat([data.edge_index, new_edges], dim=1)
-    n_edge_features = data.edge_attr.shape[1]
-    edge_attr = torch.cat([data.edge_attr, torch.ones(n_nodes, n_edge_features), torch.sin(torch.arange(0, n_edge_features).repeat(n_nodes, 1))])
+    edge_attr = torch.cat([
+        data.edge_attr,
+        -1*torch.ones((n_nodes, 2), dtype=torch.int64),
+        -2*torch.ones((n_nodes, 2), dtype=torch.int64)
+    ])
     d = {'x': x,
          'edge_index': edge_index,
          'edge_attr': edge_attr
@@ -53,14 +55,12 @@ def add_master_node_with_bidirectional_edges(data):
     return data_with_master_node
 
 def add_master_node_with_incoming_edges(data):
-    n_node_features = data.x.shape[1]
     n_nodes = data.x.shape[0]
-    new_node = torch.ones(1, n_node_features, dtype=torch.float32)
+    new_node = torch.ones(1, 2, dtype=torch.float32)
     x = torch.cat([data.x, new_node])
     new_edges = torch.tensor([[t, n_nodes] for t in data.obj_nodes.tolist()], dtype=torch.int).t()
     edge_index = torch.cat([data.edge_index, new_edges], dim=1)
-    n_edge_features = data.edge_attr.shape[1]
-    edge_attr = torch.cat([data.edge_attr, torch.ones(n_nodes, n_edge_features)])
+    edge_attr = torch.cat([data.edge_attr, -1*torch.ones(n_nodes, 2)])
     d = {'x': x,
          'edge_index': edge_index,
          'edge_attr': edge_attr
@@ -88,8 +88,20 @@ def transfer_attributes(data):
 def transfer_attributes_batched(batch):
     return batch_transform(transfer_attributes, batch)
 
-def batch_transform(fn, batch):
+def batch_transform(fn, batch, *args):
     data_list = batch.to_data_list()
-    transformed_data_list = [fn(data) for data in data_list]
+    transformed_data_list = [fn(data, *args) for data in data_list]
     transformed_batch = Batch.from_data_list(transformed_data_list)
     return transformed_batch
+
+def tokens_to_embeddings(data, embedding):
+    num_embs = embedding.num_embeddings
+    data.edge_attr[data.edge_attr < 0] = (num_embs - 1) - data.edge_attr[data.edge_attr < 0]
+    data.edge_attr = embedding(data.edge_attr).reshape(data.edge_attr.shape[0], -1)
+    data.x[data.x < 0] = (num_embs - 1) - data.x[data.x < 0]
+    data.x = embedding(data.x).reshape(data.x.shape[0], -1)
+    return data
+
+
+def tokens_to_embeddings_batched(batch, embeddings):
+    return batch_transform(tokens_to_embeddings, batch, embeddings)
