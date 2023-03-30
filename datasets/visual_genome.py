@@ -34,15 +34,15 @@ def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, metadata, coco_val_
     for idx, obj in enumerate(d['objects']):
         id_to_idx[obj['object_id']] = idx
     # edge_index: [2, num_edges]
-    edge_index = torch.zeros((2, len(d['relationships'])), dtype=torch.long)
+    edge_index = torch.zeros((2, len(d['relationships'])), dtype=torch.int64)
     for ctr, rel in enumerate(d['relationships']):
         edge_index[:, ctr] = torch.tensor([id_to_idx[rel['subject_id']], id_to_idx[rel['object_id']]])
-    attrs_edge_index = torch.zeros((2, n_attrs), dtype=torch.long)
+    attrs_edge_index = torch.zeros((2, n_attrs), dtype=torch.int64)
     for attr_idx, x_idx in enumerate(attr_to_x):
         attrs_edge_index[:, attr_idx] = torch.tensor([attr_idx+n_obj_nodes, x_idx])
     # edge_attr: [num_edges, num_txt_features]
     if len(d['relationships']) == 0:
-        edge_attr = torch.zeros((0, 2))
+        edge_attr = torch.zeros((0, 2), dtype=torch.int64)
     else:
         rel_txts = []
         for rel in d['relationships']:
