@@ -147,17 +147,20 @@ class VisualGenome(InMemoryDataset):
         def clip_latent_txt_enc_fn(txts):
             with torch.no_grad():
                 return model.encode_text(tokenizer(txts).to(self.enc_cfg["device"])).cpu()
+        tokens_used = set()
         def clip_embedding_txt_enc(txts):
            with torch.no_grad():
                 tokens = tokenizer(txts).to(self.enc_cfg["device"])
                 tokens[tokens == 49407] = 0
                 tokens = tokens[:, 1:3]
+                tokens_used.update(tokens.flatten().tolist())
                 out = tokens.cpu()
                 return out                
         txt_enc_fn = clip_latent_txt_enc_fn if self.enc_cfg["use_clip_latents"] else clip_embedding_txt_enc
         logging.info("Producing PyG graphs...")
         data_list = [dict_to_pyg_graph(d, img_enc_fn, txt_enc_fn, image_id_to_path, metadata, coco_val_ids)
                      for d, metadata in tqdm(zip(scene_graphs_dict, image_data_dict))]
+        logging.info(f"Total number of tokens used: {len(tokens_used)}")
 
         if self.pre_filter is not None:
             data_list = [data for data in data_list if self.pre_filter(data)]
