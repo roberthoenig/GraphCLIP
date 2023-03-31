@@ -14,7 +14,7 @@ middle_dim = 512
 p_dropout = 0.4
 model_name = "ViT-g-14"
 pretrained = "laion2b_s12b_b42k"
-freeze_embedding = true
+freeze_embedding = false
 
 [train_args]
 epochs = 100

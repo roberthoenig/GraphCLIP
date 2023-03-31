@@ -116,7 +116,7 @@ class GNN5(torch.nn.Module):
 
 # Like GNN4, but accepts graphs with tokenized (i.e. not yet embedded) features.
 class GNN6(torch.nn.Module):
-    def __init__(self, in_dim, out_dim, edge_dim, middle_dim, p_dropout, model_name, pretrained):
+    def __init__(self, in_dim, out_dim, edge_dim, middle_dim, p_dropout, model_name, pretrained, freeze_embedding):
         super().__init__()
         self.conv1 = GATv2Conv(in_dim, middle_dim, heads=2, concat=False, edge_dim=edge_dim)
         self.conv2 = GATv2Conv(middle_dim, middle_dim, heads=2, concat=False, edge_dim=edge_dim)
@@ -127,7 +127,7 @@ class GNN6(torch.nn.Module):
         emb_dim = model.token_embedding.embedding_dim
         new_embs = torch.sin(torch.arange(4, dtype=torch.float).reshape(-1,1) * torch.arange(emb_dim, dtype=torch.float).reshape(1,-1))
         weights =  torch.cat([model.token_embedding.weight, new_embs])
-        self.embedding = torch.nn.Embedding.from_pretrained(weights)
+        self.embedding = torch.nn.Embedding.from_pretrained(weights, freeze=freeze_embedding)
 
     def forward(self, data):
         data = tokens_to_embeddings_batched(data, self.embedding)
