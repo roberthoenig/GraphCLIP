@@ -24,7 +24,6 @@ learning_rate = 0.001
 train_val_split = "mscoco"
 epochs_per_checkpoint = 2
 load_checkpoint_path = ""
-adv_transform = "transfer_attributes"
 
 [dataset_args]
 root = "datasets/visual_genome"
