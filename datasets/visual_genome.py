@@ -46,11 +46,8 @@ def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, metadata, coco_val_
     else:
         rel_txts = []
         for rel in d['relationships']:
-            subj_txt = d['objects'][id_to_idx[rel['subject_id']]]['names'][0]
-            obj_txt = d['objects'][id_to_idx[rel['object_id']]]['names'][0]
             rel_txt = rel['predicate']
-            compound_txt = " ".join([subj_txt, rel_txt, obj_txt])
-            rel_txts.append(compound_txt)
+            rel_txts.append(rel_txt)
         edge_attr = txt_enc(rel_txts)
     attrs_edge_attr = -3*torch.ones((n_attrs, 2), dtype=torch.int64)
     
@@ -88,7 +85,7 @@ class VisualGenome(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return [f"data_{self.n_samples}_{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_use_clip_latents={self.enc_cfg['use_clip_latents']}_coco_annotated_with_attributes_4.pt"]
+        return [f"data_{self.n_samples}_{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_use_clip_latents={self.enc_cfg['use_clip_latents']}_coco_annotated_with_attributes_5.pt"]
 
     def download(self):
         # Download to `self.raw_dir`.
