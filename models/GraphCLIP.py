@@ -126,7 +126,7 @@ class GNN6(torch.nn.Module):
         model, _, _ = open_clip.create_model_and_transforms(model_name=model_name, pretrained=pretrained, device="cpu")
         emb_dim = model.token_embedding.embedding_dim
         if embedding_init == 'random':
-            new_shape = model.token_embedding.weight.shape
+            new_shape = list(model.token_embedding.weight.shape)
             new_shape[0] += 4
             weights = torch.randn(new_shape)
         elif embedding_init == 'CLIP':
