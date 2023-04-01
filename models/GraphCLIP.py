@@ -125,14 +125,16 @@ class GNN6(torch.nn.Module):
         self.p_dropout = p_dropout
         model, _, _ = open_clip.create_model_and_transforms(model_name=model_name, pretrained=pretrained, device="cpu")
         emb_dim = model.token_embedding.embedding_dim
-        new_embs = torch.sin(torch.arange(4, dtype=torch.float).reshape(-1,1) * torch.arange(emb_dim, dtype=torch.float).reshape(1,-1))
-        weights =  torch.cat([model.token_embedding.weight, new_embs])
         if embedding_init == 'random':
-            self.embedding = torch.nn.Embedding(_freeze=freeze_embedding)
+            new_shape = model.token_embedding.weight.shape
+            new_shape[0] += 4
+            weights = torch.randn(new_shape)
         elif embedding_init == 'CLIP':
-            self.embedding = torch.nn.Embedding.from_pretrained(weights, freeze=freeze_embedding)
+            new_embs = torch.sin(torch.arange(4, dtype=torch.float).reshape(-1,1) * torch.arange(emb_dim, dtype=torch.float).reshape(1,-1))
+            weights =  torch.cat([model.token_embedding.weight, new_embs])
         else:
             raise Exception(f"Unknown embedding_init {embedding_init}.")
+        self.embedding = torch.nn.Embedding.from_pretrained(weights, freeze=freeze_embedding)
 
     def forward(self, data):
         data = tokens_to_embeddings_batched(data, self.embedding)
