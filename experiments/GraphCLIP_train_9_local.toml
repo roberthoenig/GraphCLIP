@@ -1,40 +1,38 @@
 model = "GraphCLIP"
 dataset = "VisualGenome"
 seed = 123456
-device = "cuda:0"
+device = "cpu"
 type = "train"
 
 [model_args]
-architecture = "GNN6"
+architecture = "GNN5"
 [model_args.arch_args]
-in_dim = 2048
+in_dim = 1024
 out_dim = 1024
-edge_dim = 2048
+edge_dim = 1024
 middle_dim = 512
-p_dropout = 0.4
-model_name = "ViT-g-14"
-pretrained = "laion2b_s12b_b42k"
-freeze_embedding = true
-embedding_init = "CLIP"
+p_dropout = 0.5
 
 [train_args]
-epochs = 100
+epochs = 10
 batch_size = 128
 learning_rate = 0.001
 train_val_split = "mscoco"
 epochs_per_checkpoint = 2
 load_checkpoint_path = ""
-adv_transform = "transfer_attributes"
 
 [dataset_args]
 root = "datasets/visual_genome"
-n_samples = "all"
+n_samples = 20
 transform = "add_master_node_with_bidirectional_edges"
 [dataset_args.enc_cfg]
-model_name = "ViT-g-14"
-pretrained = "laion2b_s12b_b42k"
+emb_dim = 1024
+model_name = "RN50"
+pretrained = "openai"
+# model_name = "ViT-g-14"
+# pretrained = "laion2b_s12b_b42k"
 use_clip_latents = false
-device = "cuda:0"
+device = "cpu"
 
 [dataset_filter_args]
 filter = "remove_edgeless_graphs"
