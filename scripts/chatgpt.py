@@ -8,6 +8,9 @@ import json
 import torch
 import shutil
 import open_clip
+import os.path as osp
+import matplotlib.pyplot as plt
+import networkx as nx
 
 PROMPT = """
 Please parse the following labeled scene graph into an equivalent human-readable sentence. Each line of the graph description lists a node's name, its attributes and its outgoing labeled edges to other nodes. Please only include information that is explicitly stated in the graph. Your description should contain all information in the graph and is not limited in length. The ordering of the edges and nodes is arbitrary, so they are all equally important.
@@ -17,22 +20,46 @@ Your description must omit the node identifier indices, that is, it must write "
 
 PROMPT2 = """
 Please shorten the previous scene description such that it contains at most sixty words and retains as much information about the scene as possible. Write as terse as possible. Write in a telegraphic style, but don't abbreviate words and make sure to include information about the relation between objects in the scene with words like "next to", "behind", etc.
-Also avoid mentioning the graph directly, that is, omit phrases like "In the scene", "this node has no attributes", etc. Also omit node 
+Also avoid mentioning the graph directly, that is, omit phrases like "In the scene", "this node has no attributes", etc.
 """
 
-SCENE_GRAPHS_PATH = 'datasets/visual_genome/raw/scene_graphs_small.json'
+SCENE_GRAPHS_PATH = 'datasets/visual_genome/raw/scene_graphs.json'
+IMAGE_DATA_PATH = 'datasets/visual_genome/raw/image_data.json'
+MSCOCO_ANN_PATH = 'datasets/mscoco/annotations_trainval2017/annotations/captions_val2017.json'
 OUT_JSON_PATH = 'scripts/chatgpt/captions.json'
 OUT_IMG_DIR = 'scripts/chatgpt/images/'
 VG_100K_DIR = 'datasets/visual_genome/raw/VG_100K'
 VG_100K_2_DIR = 'datasets/visual_genome/raw/VG_100K_2'
 N_CAPTION_SAMPLES = 10
+N_CAPTIONS = 200
+ID_PATH = 'datasets/mscoco/overlap.json'
 
 def print_messages(messages):
     for m in messages:
         print('role', m['role'], 'content', m['content'])
 
+def build_graph(g_dict):
+    G = nx.DiGraph(image_id=g_dict['image_id'])
+    G.labels = {}
+    for obj in g_dict['objects']:
+        G.add_node(obj['object_id'], w=obj['w'], h=obj['h'], x=obj['x'], y=obj['y'], attributes=obj.get('attributes',[]), name=obj['names'][0])
+        G.labels[obj['object_id']] = obj['names'][0]
+    for rel in g_dict['relationships']:
+        G.add_edge(rel['subject_id'], rel['object_id'], synsets=rel['synsets'] ,relationship_id=rel['relationship_id'], predicate=rel['predicate'])
+    return G
+    
+def plot_graph(g, idx):
+    pos = nx.nx_agraph.graphviz_layout(g, prog="dot")
+    max_y = max([y for x,y in pos.values()])
+    n_nodes_top = len([n for n in g.nodes if pos[n][1] == max_y])
+    longest_label = max([len(g.labels[n]) for n in g.nodes])
+    plt.figure(figsize=(max(n_nodes_top*longest_label/10,15),5))
+    nx.draw(g,pos=pos,labels=g.labels, with_labels=True, node_size=10, node_color="lightgray", font_size=8)
+    nx.draw_networkx_edge_labels(g,pos=pos,edge_labels=nx.get_edge_attributes(g,'predicate'),font_size=8)
+    plt.savefig(f"scripts/chatgpt/graphs/{idx}.png")
+
 def query_chatgpt(messages):
-    print_messages(messages)
+    # print_messages(messages)
     # exit(0)
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -127,6 +154,13 @@ def main():
     openai.api_key = os.getenv('OPENAI_API_KEY')
     with open(SCENE_GRAPHS_PATH, 'r') as f:
         scene_graphs_dict = json.load(f)
+    with open(IMAGE_DATA_PATH, 'r') as f:
+        image_data_dict = json.load(f)
+    with open(MSCOCO_ANN_PATH, 'r') as f:
+        mscoco_ann_list = json.load(f)['annotations']
+        mscoco_ann_dict = {d['image_id']: d for d in mscoco_ann_list}
+    for d, i in zip(scene_graphs_dict, image_data_dict):
+        d['coco_id'] = i['coco_id']
     
     image_id_to_path = dict()
     for dir in [Path(VG_100K_DIR), Path(VG_100K_2_DIR)]:
@@ -135,10 +169,20 @@ def main():
             img_id = int(path.stem)
             image_id_to_path[img_id] = str(path)
 
-    out_list = []
+    if osp.exists(OUT_JSON_PATH):
+        with open(OUT_JSON_PATH, 'r') as f:
+            out_list = json.load(f)
+    else:
+        out_list = []
+    existing_coco_ids = [d['coco_id'] for d in out_list]
+    with open(ID_PATH, 'r') as f:
+        coco_overlap_ids = json.load(f)
+    scene_graphs_filtered = [d for d in scene_graphs_dict if d['coco_id'] in coco_overlap_ids and d['coco_id'] not in existing_coco_ids]
+    scene_graphs_filtered = scene_graphs_filtered[:N_CAPTIONS]
     total_tokens = 0
-    # for d in tqdm([scene_graphs_dict[100]]):
-    for d in tqdm(scene_graphs_dict[:1000:100]):
+    for d in tqdm(scene_graphs_filtered):
+        image_id = d['image_id']
+        coco_id = d['coco_id']
         outs = {
             'long_captions': [],
             'short_captions': [],
@@ -146,7 +190,6 @@ def main():
         }
         for _ in range(N_CAPTION_SAMPLES):
             out = graph_to_caption(d)
-            image_id = d['image_id']
             outs['long_captions'].append(out['long_caption'])
             outs['short_captions'].append(out['short_caption'])
             outs['n_tokens'] += out['n_tokens']
@@ -161,11 +204,17 @@ def main():
         captions.sort(key = lambda d: d["n_tokens_short"])
         out_list.append({
             'image_id': image_id,
+            'coco_id': coco_id,
             'captions': captions,
+            'mscoco_captions': mscoco_ann_dict[coco_id],
         })
+        # Captions
         with open(OUT_JSON_PATH, 'w') as f:
             json.dump(out_list, f)
-        shutil.copy(image_id_to_path[image_id], OUT_IMG_DIR) 
+        # Image
+        shutil.copy(image_id_to_path[image_id], OUT_IMG_DIR)
+        # Graph rendering
+        plot_graph(build_graph(d), image_id)
         total_tokens += outs['n_tokens']
         print(f"({image_id}) Tokens used for this example: {outs['n_tokens']} ({tok_to_usd(outs['n_tokens'])} USD)")
         print(f"({image_id}) Tokens used in total: {total_tokens} ({tok_to_usd(total_tokens)} USD)")
