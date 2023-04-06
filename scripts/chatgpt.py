@@ -11,6 +11,7 @@ import open_clip
 import os.path as osp
 import matplotlib.pyplot as plt
 import networkx as nx
+from collections import defaultdict 
 
 PROMPT = """
 Please parse the following labeled scene graph into an equivalent human-readable sentence. Each line of the graph description lists a node's name, its attributes and its outgoing labeled edges to other nodes. Please only include information that is explicitly stated in the graph. Your description should contain all information in the graph and is not limited in length. The ordering of the edges and nodes is arbitrary, so they are all equally important.
@@ -30,7 +31,7 @@ OUT_JSON_PATH = 'scripts/chatgpt/captions.json'
 OUT_IMG_DIR = 'scripts/chatgpt/images/'
 VG_100K_DIR = 'datasets/visual_genome/raw/VG_100K'
 VG_100K_2_DIR = 'datasets/visual_genome/raw/VG_100K_2'
-N_CAPTION_SAMPLES = 10
+N_CAPTION_SAMPLES = 2
 N_CAPTIONS = 200
 ID_PATH = 'datasets/mscoco/overlap.json'
 
@@ -49,14 +50,17 @@ def build_graph(g_dict):
     return G
     
 def plot_graph(g, idx):
-    pos = nx.nx_agraph.graphviz_layout(g, prog="dot")
-    max_y = max([y for x,y in pos.values()])
-    n_nodes_top = len([n for n in g.nodes if pos[n][1] == max_y])
-    longest_label = max([len(g.labels[n]) for n in g.nodes])
-    plt.figure(figsize=(max(n_nodes_top*longest_label/10,15),5))
-    nx.draw(g,pos=pos,labels=g.labels, with_labels=True, node_size=10, node_color="lightgray", font_size=8)
-    nx.draw_networkx_edge_labels(g,pos=pos,edge_labels=nx.get_edge_attributes(g,'predicate'),font_size=8)
-    plt.savefig(f"scripts/chatgpt/graphs/{idx}.png")
+    if g.number_of_nodes() == 0:
+        plt.savefig(f"scripts/chatgpt/graphs/{idx}.png")
+    else:
+        pos = nx.nx_agraph.graphviz_layout(g, prog="dot")
+        max_y = max([y for x,y in pos.values()])
+        n_nodes_top = len([n for n in g.nodes if pos[n][1] == max_y])
+        longest_label = max([len(g.labels[n]) for n in g.nodes])
+        plt.figure(figsize=(max(n_nodes_top*longest_label/10,15),5))
+        nx.draw(g,pos=pos,labels=g.labels, with_labels=True, node_size=10, node_color="lightgray", font_size=8)
+        nx.draw_networkx_edge_labels(g,pos=pos,edge_labels=nx.get_edge_attributes(g,'predicate'),font_size=8)
+        plt.savefig(f"scripts/chatgpt/graphs/{idx}.png")
 
 def query_chatgpt(messages):
     # print_messages(messages)
@@ -158,7 +162,10 @@ def main():
         image_data_dict = json.load(f)
     with open(MSCOCO_ANN_PATH, 'r') as f:
         mscoco_ann_list = json.load(f)['annotations']
-        mscoco_ann_dict = {d['image_id']: d for d in mscoco_ann_list}
+    mscoco_ann_dict = defaultdict(list)
+    for d in mscoco_ann_list:
+        mscoco_ann_dict[d['image_id']].append(d['caption'])
+    mscoco_ann_dict = dict(mscoco_ann_dict)
     for d, i in zip(scene_graphs_dict, image_data_dict):
         d['coco_id'] = i['coco_id']
     
@@ -183,31 +190,44 @@ def main():
     for d in tqdm(scene_graphs_filtered):
         image_id = d['image_id']
         coco_id = d['coco_id']
-        outs = {
-            'long_captions': [],
-            'short_captions': [],
-            'n_tokens': 0
-        }
-        for _ in range(N_CAPTION_SAMPLES):
-            out = graph_to_caption(d)
-            outs['long_captions'].append(out['long_caption'])
-            outs['short_captions'].append(out['short_caption'])
-            outs['n_tokens'] += out['n_tokens']
-        n_tokens_long = [get_text_token_length(c) for c in outs['long_captions']]
-        n_tokens_short = [get_text_token_length(c) for c in outs['short_captions']]
-        captions =  [{
-                'long': c_long,
-                'short': c_short,
-                'n_tokens_long': n_tokens_long,
-                'n_tokens_short': n_tokens_short,
-            } for (c_long, c_short, n_tokens_long, n_tokens_short) in zip(outs['long_captions'], outs['short_captions'], n_tokens_long, n_tokens_short)]
-        captions.sort(key = lambda d: d["n_tokens_short"])
-        out_list.append({
-            'image_id': image_id,
-            'coco_id': coco_id,
-            'captions': captions,
-            'mscoco_captions': mscoco_ann_dict[coco_id],
-        })
+        if len(d['objects']) == 0:
+            outs = {
+                'n_tokens': 0
+            }
+            out_list.append({
+                'image_id': image_id,
+                'coco_id': coco_id,
+                'captions': [""] * 10,
+                'info': "Empty Graph!",
+                'mscoco_captions': mscoco_ann_dict[coco_id],
+            })
+        else:
+            outs = {
+                'long_captions': [],
+                'short_captions': [],
+                'n_tokens': 0
+            }
+            for _ in range(N_CAPTION_SAMPLES):
+                out = graph_to_caption(d)
+                outs['long_captions'].append(out['long_caption'])
+                outs['short_captions'].append(out['short_caption'])
+                outs['n_tokens'] += out['n_tokens']
+            n_tokens_long = [get_text_token_length(c) for c in outs['long_captions']]
+            n_tokens_short = [get_text_token_length(c) for c in outs['short_captions']]
+            captions =  [{
+                    'long': c_long,
+                    'short': c_short,
+                    'n_tokens_long': n_tokens_long,
+                    'n_tokens_short': n_tokens_short,
+                } for (c_long, c_short, n_tokens_long, n_tokens_short) in zip(outs['long_captions'], outs['short_captions'], n_tokens_long, n_tokens_short)]
+            captions.sort(key = lambda d: d["n_tokens_short"])
+            out_list.append({
+                'image_id': image_id,
+                'coco_id': coco_id,
+                'captions': captions,
+                'mscoco_captions': mscoco_ann_dict[coco_id],
+            })
+            total_tokens += outs['n_tokens']
         # Captions
         with open(OUT_JSON_PATH, 'w') as f:
             json.dump(out_list, f)
@@ -215,7 +235,6 @@ def main():
         shutil.copy(image_id_to_path[image_id], OUT_IMG_DIR)
         # Graph rendering
         plot_graph(build_graph(d), image_id)
-        total_tokens += outs['n_tokens']
         print(f"({image_id}) Tokens used for this example: {outs['n_tokens']} ({tok_to_usd(outs['n_tokens'])} USD)")
         print(f"({image_id}) Tokens used in total: {total_tokens} ({tok_to_usd(total_tokens)} USD)")
         print()
