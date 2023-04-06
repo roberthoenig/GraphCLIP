@@ -12,6 +12,7 @@ import os.path as osp
 import matplotlib.pyplot as plt
 import networkx as nx
 from collections import defaultdict 
+import time
 
 PROMPT = """
 Please parse the following labeled scene graph into an equivalent human-readable sentence. Each line of the graph description lists a node's name, its attributes and its outgoing labeled edges to other nodes. Please only include information that is explicitly stated in the graph. Your description should contain all information in the graph and is not limited in length. The ordering of the edges and nodes is arbitrary, so they are all equally important.
@@ -52,6 +53,7 @@ def build_graph(g_dict):
 def plot_graph(g, idx):
     if g.number_of_nodes() == 0:
         plt.savefig(f"scripts/chatgpt/graphs/{idx}.png")
+        plt.close()
     else:
         pos = nx.nx_agraph.graphviz_layout(g, prog="dot")
         max_y = max([y for x,y in pos.values()])
@@ -61,20 +63,29 @@ def plot_graph(g, idx):
         nx.draw(g,pos=pos,labels=g.labels, with_labels=True, node_size=10, node_color="lightgray", font_size=8)
         nx.draw_networkx_edge_labels(g,pos=pos,edge_labels=nx.get_edge_attributes(g,'predicate'),font_size=8)
         plt.savefig(f"scripts/chatgpt/graphs/{idx}.png")
+        plt.close()
 
 def query_chatgpt(messages):
     # print_messages(messages)
     # exit(0)
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=messages,
-        n=N_CAPTION_SAMPLES,
-    )
-    res = {
-        "n_tokens": response["usage"]["total_tokens"],
-        "caption": response.choices[0].message.content,
-    }
-    return res
+    waiting_time = 1
+    while True:
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=messages,
+                n=1,
+            )
+            res = {
+                "n_tokens": response["usage"]["total_tokens"],
+                "caption": response.choices[0].message.content,
+            }
+            return res
+        except Exception as e:
+            print(f"Exception {e}.")
+            print(f"Retrying in {waiting_time} seconds.")
+            time.sleep(waiting_time)
+            waiting_time *= 2
 
 def graph_to_chatgpt_2(d):
     for idx, o in enumerate(d['objects']):
@@ -184,8 +195,9 @@ def main():
     existing_coco_ids = [d['coco_id'] for d in out_list]
     with open(ID_PATH, 'r') as f:
         coco_overlap_ids = json.load(f)
-    scene_graphs_filtered = [d for d in scene_graphs_dict if d['coco_id'] in coco_overlap_ids and d['coco_id'] not in existing_coco_ids]
+    scene_graphs_filtered = [d for d in scene_graphs_dict if d['coco_id'] in coco_overlap_ids]
     scene_graphs_filtered = scene_graphs_filtered[:N_CAPTIONS]
+    scene_graphs_filtered = [d for d in scene_graphs_filtered if d['coco_id'] not in existing_coco_ids]
     total_tokens = 0
     for d in tqdm(scene_graphs_filtered):
         image_id = d['image_id']
