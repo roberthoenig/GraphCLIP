@@ -31,7 +31,7 @@ OUT_JSON_PATH = 'scripts/chatgpt/captions.json'
 OUT_IMG_DIR = 'scripts/chatgpt/images/'
 VG_100K_DIR = 'datasets/visual_genome/raw/VG_100K'
 VG_100K_2_DIR = 'datasets/visual_genome/raw/VG_100K_2'
-N_CAPTION_SAMPLES = 2
+N_CAPTION_SAMPLES = 10
 N_CAPTIONS = 200
 ID_PATH = 'datasets/mscoco/overlap.json'
 
