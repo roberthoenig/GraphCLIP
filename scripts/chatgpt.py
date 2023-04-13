@@ -33,7 +33,7 @@ OUT_IMG_DIR = 'scripts/chatgpt/images/'
 VG_100K_DIR = 'datasets/visual_genome/raw/VG_100K'
 VG_100K_2_DIR = 'datasets/visual_genome/raw/VG_100K_2'
 N_CAPTION_SAMPLES = 10
-N_CAPTIONS = 200
+N_CAPTIONS = "all"
 ID_PATH = 'datasets/mscoco/overlap.json'
 
 def print_messages(messages):
@@ -196,7 +196,8 @@ def main():
     with open(ID_PATH, 'r') as f:
         coco_overlap_ids = json.load(f)
     scene_graphs_filtered = [d for d in scene_graphs_dict if d['coco_id'] in coco_overlap_ids]
-    scene_graphs_filtered = scene_graphs_filtered[:N_CAPTIONS]
+    if not N_CAPTIONS == "all":
+        scene_graphs_filtered = scene_graphs_filtered[:N_CAPTIONS]
     scene_graphs_filtered = [d for d in scene_graphs_filtered if d['coco_id'] not in existing_coco_ids]
     total_tokens = 0
     for d in tqdm(scene_graphs_filtered):
