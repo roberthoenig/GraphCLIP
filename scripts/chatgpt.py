@@ -209,7 +209,7 @@ def main():
             out_list.append({
                 'image_id': image_id,
                 'coco_id': coco_id,
-                'captions': [""] * 10,
+                'captions': [],
                 'info': "Empty Graph!",
                 'mscoco_captions': mscoco_ann_dict[coco_id],
             })
