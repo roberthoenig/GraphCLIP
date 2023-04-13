@@ -18,6 +18,16 @@ def copy_graph(g):
     g_copy.image_id = g.image_id
     return g_copy
 
+def plot_graph(g):
+    pos = nx.nx_agraph.graphviz_layout(g, prog="dot")
+    max_y = max([y for x,y in pos.values()])
+    n_nodes_top = len([n for n in g.nodes if pos[n][1] == max_y])
+    longest_label = max([len(g.labels[n]) for n in g.nodes])
+    plt.figure(figsize=(max(n_nodes_top*longest_label/10,15),5))
+    nx.draw(g,pos=pos,labels=g.labels, with_labels=True, node_size=10, node_color="lightgray", font_size=8)
+    nx.draw_networkx_edge_labels(g,pos=pos,edge_labels=nx.get_edge_attributes(g,'predicate'),font_size=8)
+    plt.show()
+
 def get_image(image_id):
     '''returns the image with the given id'''
     image_dir = "/local/home/stuff/visual-genome/VG/"
@@ -45,11 +55,14 @@ def convert_adversarially(g, relationship_labels):
     return g, subject, object, relationship
 
 
-def get_filtered_graphs():
+def get_filtered_graphs(test_small=False):
     '''returns a list of netwrorkx graphs, each graph is a scene graph from visual genome'''
     # check if filtered graphs are already saved, if not create them
     try:
-        filtered_graphs = torch.load(LOCAL_DATA_PATH+'processed/filtered_graphs.pt')
+        if test_small:
+            filtered_graphs = torch.load(LOCAL_DATA_PATH+'processed/filtered_graphs_test_small.pt')
+        else:
+            filtered_graphs = torch.load(LOCAL_DATA_PATH+'processed/filtered_graphs.pt')
         print('Filtered graphs loaded from file')
     except:
         print('Filtered graphs not found, creating them')

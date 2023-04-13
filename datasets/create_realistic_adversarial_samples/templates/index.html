@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Selection</title>
+    <style>
+        .container {
+            display: flex;
+            align-items: flex-start;
+        }
+        .options {
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="options">
+            <form action="/next_image" method="POST">
+                {% for option in options %}
+                    <input type="checkbox" name="options" value="{{ option[1] }}">
+                    <label for="{{ option[1] }}">{{ option[0] }}</label><br>
+                {% endfor %}
+                <input type="submit" value="Next">
+            </form>
+        </div>
+        <img src="data:image/jpeg;base64,{{ img_data }}" alt="Image" width="500" height="500">
+    </div>
+</body>
+</html>

@@ -7,35 +7,35 @@ import torch
 
 adv_perturbations = {
     'on': ['under', 'beside', 'next to', 'in front of', 'behind', 'above', 'below', 'in', 'inside'],
-    'has': ['holds', 'carrying', 'using'],
-    'in': ['outside'],
+    'has': [],
+    'in': ['outside', 'on'],
     'of': [],
     'wearing': [],
     'with': ['beside'],
-    'behind': ['in front of', 'next to', 'beside'],
+    'behind': ['in front of', 'next to', 'beside', 'on'],
     'holding': ['carrying', 'has', 'using'],
     'on a': ['in a'],
-    'near': ['next to', 'beside'],
+    'near': ['next to', 'beside', 'on'],
     'on top of': ['under', 'beside', 'above'],
-    'next to': ['on top of', 'under', 'in a', 'in', 'in front of', 'behind'],
+    'next to': ['on top of', 'under', 'in a', 'in', 'in front of', 'behind', 'on'],
     'has a': ['over'],
     'under': ['on', 'above', 'over', 'next to', 'beside', 'in front of', 'behind', 'on top of'],
     'of a': [],
     'by': ['wearing', 'covered in', 'worn by', 'wearing a'],
     'above': ['below', 'under', 'over', 'next to', 'beside', 'in front of', 'behind'],
     'wears': [],
-    'in front of': ['behind', 'next to', 'beside'],
+    'in front of': ['behind', 'next to', 'beside', 'on'],
     'sitting on': ['standing on', 'laying on', 'lying on'],
     'on side of': ['next to', 'beside', 'along', 'on', 'in'],
     'attached to': [],
     'wearing a': [],
-    'in a': ['on a', 'outside', 'next to', 'beside', 'in front of', 'behind'],
+    'in a': ['on a', 'outside', 'next to', 'beside', 'in front of', 'behind', 'on'],
     'over': ['under', 'above', 'below'],
     'are on': ['are in', 'under', 'below', 'next to', 'beside', 'in front of', 'behind'],
     'at': ['beside', 'next to'],
     'for': [],
     'around': ['in', 'inside'],
-    'beside': ['on top of', 'under', 'in a', 'in', 'in front of', 'behind'],
+    'beside': ['on top of', 'under', 'in a', 'in', 'in front of', 'behind', 'on'],
     'standing on': ['sitting on', 'laying on', 'lying on'],
     'riding': ['flying'],
     'standing in': ['sitting in', 'standing on'],
@@ -155,16 +155,18 @@ def convert_all_adversarially_realistic(g, relationship_labels):
     
 
 def get_realistic_graphs_dataset():
-    metadata_path = "/local/home/jthomm/GraphCLIP/datasets/visual_genome/processed/"
-    curated_adversarialt = torch.load(metadata_path + "curated_adversarial.pt") # a dict with image_id as key and a graph and the adversarial perturbations as value
-    curated_adversarialt = {k: v for k, v in curated_adversarialt.items() if len(v) > 0}
+    metadata_path = utils.LOCAL_DATA_PATH +  "processed/"
+    curated_adversarialt = torch.load(metadata_path + "ra_selections_curated_adversarial.pt") # a dict with image_id as key and a graph and the adversarial perturbations as value
     # the format of the dict is {image_id: [(original_graph,graph_edge,adv_predicate), ...]}
     # we return a list of tuples (graphs, adv_graph, adv_edge, adv_predicate) for each image for each adversarial perturbation
     dataset = []
-    for image_id, adversarials in curated_adversarialt.items():
-        for adversarial in adversarials:
-            (original_graph, graph_edge, adv_predicate) = adversarial
-            adv_graph = utils.copy_graph(original_graph)
-            adv_graph.edges[graph_edge]['predicate'] = adv_predicate
-            dataset.append((original_graph, adv_graph, graph_edge, adv_predicate))
+    for original_graph, graph_edge, adv_predicate in curated_adversarialt:
+        adv_graph = utils.copy_graph(original_graph)
+        adv_graph.edges[graph_edge]['predicate'] = adv_predicate
+        dataset.append({
+            'original_graph': original_graph,
+            'adv_graph': adv_graph,
+            'changed_edge': graph_edge,
+            'adv_predicate': adv_predicate
+        })
     return dataset
