@@ -9,8 +9,6 @@ import torch
 import shutil
 import open_clip
 import os.path as osp
-import matplotlib.pyplot as plt
-import networkx as nx
 from collections import defaultdict 
 import time
 
@@ -35,6 +33,12 @@ VG_100K_2_DIR = 'datasets/visual_genome/raw/VG_100K_2'
 N_CAPTION_SAMPLES = 10
 N_CAPTIONS = "all"
 ID_PATH = 'datasets/mscoco/overlap.json'
+ADD_GRAPH_IMAGES = False
+ADD_IMAGE_IMAGES = True
+
+if ADD_GRAPH_IMAGES:
+    import matplotlib.pyplot as plt
+    import networkx as nx
 
 def print_messages(messages):
     for m in messages:
@@ -245,9 +249,11 @@ def main():
         with open(OUT_JSON_PATH, 'w') as f:
             json.dump(out_list, f)
         # Image
-        shutil.copy(image_id_to_path[image_id], OUT_IMG_DIR)
+        if ADD_IMAGE_IMAGES:
+            shutil.copy(image_id_to_path[image_id], OUT_IMG_DIR)
         # Graph rendering
-        plot_graph(build_graph(d), image_id)
+        if ADD_GRAPH_IMAGES:
+            plot_graph(build_graph(d), image_id)
         print(f"({image_id}) Tokens used for this example: {outs['n_tokens']} ({tok_to_usd(outs['n_tokens'])} USD)")
         print(f"({image_id}) Tokens used in total: {total_tokens} ({tok_to_usd(total_tokens)} USD)")
         print()
