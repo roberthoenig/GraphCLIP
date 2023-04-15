@@ -107,7 +107,7 @@ __pypackages__/
 
 
 *.out
-*.json
+raw
 *.zip
 *.jpg
 datasets/mscoco
