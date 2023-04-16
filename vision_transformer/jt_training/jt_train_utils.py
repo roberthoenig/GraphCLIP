@@ -1,14 +1,30 @@
 import torch
-from tqdm import tqdm
-import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.cuda.amp import GradScaler, autocast
 from tqdm import tqdm
 import wandb
+import os
+from tempfile import NamedTemporaryFile
+import numpy as np
+
+
+def get_free_gpu(min_mem=9000):
+    try:
+        with NamedTemporaryFile() as f:
+            os.system(f"nvidia-smi -q -d Memory | grep -A5 GPU | grep Free > {f.name}")
+            memory_available = [int(x.split()[2]) for x in open(f.name, 'r').readlines()]
+        if max(memory_available) < min_mem:
+            print("Not enough memory on GPU, using CPU")
+            return torch.device("cpu")
+        return torch.device("cuda", np.argmax(memory_available))
+    except:
+        print("Could not get free GPU, using CPU")
+        return torch.device("cpu")
 
 def train_one_epoch(model, dataloader, criterion, optimizer, device, scaler, epoch):
-    
+
+    model.train()
     print("-" * 10)
 
     running_loss = 0.0
@@ -74,3 +90,54 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, scaler, epo
 
 
 
+def evaluate(model, dataloader, criterion, device, epoch):
+    model.eval()
+    running_loss_rel = 0.0
+    running_loss_obj_1 = 0.0
+    running_loss_obj_2 = 0.0
+    running_corrects_rel = 0
+    running_corrects_obj_1 = 0
+    running_corrects_obj_2 = 0
+
+    with torch.no_grad():
+        for inputs, bounding_boxes, lrels, lobj1s, lobj2s in dataloader:
+            inputs = inputs.to(device)
+            bounding_boxes = bounding_boxes.to(device)
+            lrels = lrels.to(device)
+            lobj1s = lobj1s.to(device)
+            lobj2s = lobj2s.to(device)
+
+            outputs = model(inputs, bounding_boxes)
+            rel, obj_1, obj_2 = outputs
+            _, rel_preds = torch.max(rel, 1)
+            _ , obj_1_preds = torch.max(obj_1, 1)
+            _ , obj_2_preds = torch.max(obj_2, 1)
+            loss_rel = criterion(rel, lrels)
+            loss_obj_1 = criterion(obj_1, lobj1s)
+            loss_obj_2 = criterion(obj_2, lobj2s)
+
+            running_loss_rel += loss_rel.item() * inputs.size(0)
+            running_loss_obj_1 += loss_obj_1.item() * inputs.size(0)
+            running_loss_obj_2 += loss_obj_2.item() * inputs.size(0)
+            running_corrects_rel += torch.sum(rel_preds == lrels.data)
+            running_corrects_obj_1 += torch.sum(obj_1_preds == lobj1s.data)
+            running_corrects_obj_2 += torch.sum(obj_2_preds == lobj2s.data)
+
+    val_loss_rel = running_loss_rel / len(dataloader.dataset)
+    val_loss_obj_1 = running_loss_obj_1 / len(dataloader.dataset)
+    val_loss_obj_2 = running_loss_obj_2 / len(dataloader.dataset)
+    val_acc_rel = running_corrects_rel.double() / len(dataloader.dataset)
+    val_acc_obj_1 = running_corrects_obj_1.double() / len(dataloader.dataset)
+    val_acc_obj_2 = running_corrects_obj_2.double() / len(dataloader.dataset)
+    
+
+    wandb.log({
+        "val_loss_rel": val_loss_rel,
+        "val_loss_obj_1": val_loss_obj_1,
+        "val_loss_obj_2": val_loss_obj_2, 
+        "val_rel_acc": val_acc_rel.item(),
+        "val_obj_1_acc": val_acc_obj_1.item(),
+        "val_obj_2_acc": val_acc_obj_2.item(),
+    })
+
+    return val_acc_rel, val_acc_obj_1, val_acc_obj_2

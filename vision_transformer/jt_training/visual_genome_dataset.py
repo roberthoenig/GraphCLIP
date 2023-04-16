@@ -71,13 +71,22 @@ def get_dataloader(
         filtered_graphs = torch.load(filtered_graphs_path + "filtered_graphs_test_small.pt") # much faster to load
     else:
         filtered_graphs = torch.load(filtered_graphs_path + "filtered_graphs.pt")
+    train_size = int(0.8 * len(filtered_graphs))
+    filtered_graphs_train, filtered_graphs_val = torch.utils.data.random_split(filtered_graphs, [train_size, len(filtered_graphs) - train_size])
     print("Done loading filtered graphs.")
-    id_edge_graph_dict = {
+    id_edge_graph_dict_train = {
         (g.image_id, e
         ): g
-        for g in filtered_graphs for e in g.edges()
+        for g in filtered_graphs_train for e in g.edges()
     }
-    dataset = CustomImageDataset(image_dir, id_edge_graph_dict, preprocess_func)
-    dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle)
+    id_edge_graph_dict_val = {
+        (g.image_id, e
+        ): g
+        for g in filtered_graphs_val for e in g.edges()
+    }
+    dataset_train = CustomImageDataset(image_dir, id_edge_graph_dict_train, preprocess_func)
+    dataset_val = CustomImageDataset(image_dir, id_edge_graph_dict_val, preprocess_func)
+    dataloader_train = DataLoader(dataset_train, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle)
+    dataloader_val = DataLoader(dataset_val, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle)
 
-    return dataloader
+    return dataloader_train, dataloader_val

@@ -3,9 +3,9 @@ import torch.nn as nn
 from . import create_model_and_transforms
 
 class ViT_RelClassifier(torch.nn.Module):
-    def __init__(self, n_rel_classes, n_obj_classes):
+    def __init__(self, n_rel_classes, n_obj_classes, clip_model='ViT-B/32', pretrained='laion400m_e32'):
         super().__init__()
-        model_vit, _, preprocess = create_model_and_transforms('ViT-B-16', pretrained='laion400m_e32')
+        model_vit, _, preprocess = create_model_and_transforms(clip_model, pretrained=pretrained)
         self.preprocess = preprocess
         self.ViT = model_vit.visual
         self.rel_classifier = torch.nn.Linear(512, n_rel_classes)
