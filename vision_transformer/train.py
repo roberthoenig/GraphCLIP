@@ -57,7 +57,7 @@ os.makedirs(checkpoint_path)
 ### setup the model
 
 model = nn.DataParallel(ViT_RelClassifier(100, 200, clip_model_type, clip_pretrained_dataset))
-image_size = model.module.visual.image_size
+image_size = model.module.ViT.image_size
 print(f"Image size: {image_size}")
 preprocess_function = image_transform(
     image_size,
