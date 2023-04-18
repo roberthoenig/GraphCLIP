@@ -7,7 +7,7 @@ import sys
 from os.path import dirname, abspath
 d = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(d)
-from datasets.VG_graphs import get_filtered_relationships, get_filtered_objects, get_filtered_attributes
+from datasets.VG_graphs import get_filtered_relationships, get_filtered_objects, get_filtered_attributes, copy_graph, get_realistic_graphs_dataset, plot_graph
 
 class CustomImageDataset(Dataset):
     def __init__(self, image_dir, id_edge_graph_dict, preprocess_func):
@@ -24,6 +24,10 @@ class CustomImageDataset(Dataset):
 
     def __getitem__(self, idx):
         image_id, edge = self.image_ids_edges[idx]
+        return self.getitem_from_id_edge(image_id, edge)
+
+
+    def getitem_from_id_edge(self, image_id, edge):
         img_path = os.path.join(self.image_dir, f"{image_id}.jpg")
         image = Image.open(img_path).convert("RGB")
         g = self.id_edge_graph_dict[(image_id, edge)]
@@ -90,3 +94,24 @@ def get_dataloader(
     dataloader_val = DataLoader(dataset_val, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle)
 
     return dataloader_train, dataloader_val
+
+
+def get_realistic_graphs_dataset_ViT(
+        preprocess_func,
+        image_dir="/local/home/stuff/visual-genome/VG/"
+):
+    dataset = get_realistic_graphs_dataset()
+    id_edge_graph_dict_test_orig = {
+        (d['original_graph'].image_id, d['changed_edge']
+        ): d['original_graph']
+        for d in dataset
+    }
+    id_edge_graph_dict_test_adv = {
+        (d['adv_graph'].image_id, d['changed_edge']
+        ): d['adv_graph']
+        for d in dataset
+    }
+    dataset_test_orig = CustomImageDataset(image_dir, id_edge_graph_dict_test_orig, preprocess_func)
+    dataset_test_adv = CustomImageDataset(image_dir, id_edge_graph_dict_test_adv, preprocess_func)
+    return dataset_test_orig, dataset_test_adv, dataset
+
