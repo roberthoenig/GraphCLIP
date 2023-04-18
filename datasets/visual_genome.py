@@ -52,6 +52,7 @@ def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, metadata, coco_val_
     attrs_edge_attr = -3*torch.ones((n_attrs, 2), dtype=torch.int64)
     
     coco_id = metadata['coco_id'] if metadata['coco_id'] is not None else -1
+    image_id = d['image_id']
     in_coco_val = coco_id in coco_val_ids
     data = Data(x=torch.cat([x, attrs]),
         edge_attr=torch.cat([edge_attr, attrs_edge_attr]),
@@ -60,6 +61,7 @@ def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, metadata, coco_val_
         obj_nodes=torch.arange(0, n_obj_nodes),
         attr_nodes=torch.arange(n_obj_nodes, n_obj_nodes + n_attrs),
         coco_id=torch.tensor([coco_id], dtype=torch.long),
+        image_id=torch.tensor([image_id], dtype=torch.long),
         in_coco_val=torch.tensor([in_coco_val], dtype=torch.bool)
     )
     return data
@@ -85,7 +87,7 @@ class VisualGenome(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return [f"data_{self.n_samples}_{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_use_clip_latents={self.enc_cfg['use_clip_latents']}_coco_annotated_with_attributes_5.pt"]
+        return [f"data_{self.n_samples}_{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_use_clip_latents={self.enc_cfg['use_clip_latents']}_coco_annotated_with_attributes_6.pt"]
 
     def download(self):
         # Download to `self.raw_dir`.
