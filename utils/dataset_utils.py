@@ -20,7 +20,7 @@ def in_mscoco_val(data):
 
 def make_is_not_visualgenome_duplicate(vg_dupes):
     def is_not_visualgenome_duplicate(data):
-        return data['image_id'].item() == vg_dupes[data['coco_id'].item()][0]
+        return data['image_id'].item() == vg_dupes[str(data['coco_id'].item())][0]
     return is_not_visualgenome_duplicate
 
 def dataset_filter(dataset, filters=[]):
