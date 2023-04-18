@@ -6,6 +6,7 @@ import torch
 from tqdm import tqdm
 import logging
 import random
+import json
 
 def unzip_file(zip_path, target_dir):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
@@ -17,22 +18,34 @@ def is_not_edgeless(data):
 def in_mscoco_val(data):
     return data.in_coco_val.item()
 
-def dataset_filter(dataset, filter=None):
-    # Filter
-    if filter == "remove_edgeless_graphs":
-        filter_fn = is_not_edgeless
-    elif filter == "remove_mscoco_val":
-        filter_fn = lambda x: not in_mscoco_val(x)
-    elif filter == "keep_mscoco_val":
-        filter_fn = in_mscoco_val
-    elif filter is None:
-        filter_fn = lambda x: True
-    else:
-        raise Exception(f"Unknown filter {filter}")
-    logging.info("Filtering dataset...")
-    filtered_indexes = [i for i in tqdm(range(len(dataset))) if filter_fn(dataset[i])]
-    filtered_dataset = data.Subset(dataset, filtered_indexes)
-    return filtered_dataset
+def make_is_not_visualgenome_duplicate(vg_dupes):
+    def is_not_visualgenome_duplicate(data):
+        return data['image_id'] == vg_dupes[data['coco_id']][0]
+    return is_not_visualgenome_duplicate
+
+def dataset_filter(dataset, filters=[]):
+    filter_fns = []
+    for filter in filters:
+        # Filter
+        if filter == "remove_edgeless_graphs":
+            filter_fn = is_not_edgeless
+        elif filter == "remove_mscoco_val":
+            filter_fn = lambda x: not in_mscoco_val(x)
+        elif filter == "keep_mscoco_val":
+            filter_fn = in_mscoco_val
+        elif filter == "remove_visualgenome_duplicates":
+            with open("datasets/visual_genome/raw/visualgenome_duplicates.json", "r") as f:
+                vg_dupes = json.load(f)
+            filter_fn = make_is_not_visualgenome_duplicate(vg_dupes)
+        elif filter is None:
+            filter_fn = lambda x: True
+        else:
+            raise Exception(f"Unknown filter {filter}")
+        filter_fns.append(filter_fn)
+    logging.info(f"Filtering dataset...")
+    filtered_indexes = [i for i in tqdm(range(len(dataset))) if all(f(dataset[i]) for f in filter_fns)]
+    dataset = data.Subset(dataset, filtered_indexes)
+    return dataset
 
 def add_master_node_with_bidirectional_edges(data):
     n_nodes = data.x.shape[0]

@@ -185,11 +185,12 @@ class GraphCLIP():
         dataset = dataset_filter(dataset, **self.config["dataset_filter_args"])
         train_val_split = self.config["train_args"]["train_val_split"]
         if train_val_split == "mscoco":
-            train_set = dataset_filter(dataset, filter="remove_mscoco_val")
-            val_set = dataset_filter(dataset, filter="keep_mscoco_val")
+            train_set = dataset_filter(dataset, filters=["remove_mscoco_val"])
+            val_set = dataset_filter(dataset, filters=["keep_mscoco_val"])
         else:
             train_ratio = train_val_split
             train_set, val_set = torch.utils.data.random_split(dataset, [train_ratio, 1-train_ratio])
+        val_set = dataset_filter(val_set, **self.config["valset_filter_args"])
         train_dloader = DataLoader(train_set, batch_size=self.config["train_args"]["batch_size"], shuffle=True)
         val_dloader = DataLoader(val_set, batch_size=self.config["train_args"]["batch_size"], shuffle=False)
         # Optimizer
@@ -261,10 +262,11 @@ class GraphCLIP():
             dataset = dataset_filter(dataset, **self.config["dataset_filter_args"])
             train_val_split = self.config["eval_args"]["train_val_split"]
             if train_val_split == "mscoco":
-                val_set = dataset_filter(dataset, filter="keep_mscoco_val")
+                val_set = dataset_filter(dataset, filters=["keep_mscoco_val"])
             else:
                 train_ratio = train_val_split
                 _, val_set = torch.utils.data.random_split(dataset, [train_ratio, 1-train_ratio])
+            val_set = dataset_filter(val_set, **self.config["valset_filter_args"])
             val_dloader = DataLoader(val_set, batch_size=1, shuffle=False)
         else:
             raise Exception(f"Unkown dataset {self.config['dataset']}.")
