@@ -1,7 +1,7 @@
 model = "TextCLIP"
 dataset = "MSCOCO"
 seed = 123456
-device = "cpu"
+device = "cuda:0"
 type = "eval"
 
 [eval_args]

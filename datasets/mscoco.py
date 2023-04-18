@@ -33,7 +33,7 @@ class MSCOCO:
             for image_id, group in df.groupby('image_id'):
                 if image_id not in ids:
                     continue
-                maybe_caption = captions_d[image_id]
+                maybe_caption = captions_d.get(image_id, None)
                 if maybe_caption is None:
                     continue
                 images.append(imageid2filename[image_id])
