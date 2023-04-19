@@ -62,7 +62,8 @@ class PatchDropout(nn.Module):
         if self.exclude_first_token:
             cls_tokens, x = x[:, :1], x[:, 1:]
         else:
-            cls_tokens = torch.jit.annotate(torch.Tensor, x[:, :1])
+            # cls_tokens = torch.jit.annotate(torch.Tensor, x[:, :1])
+            pass
 
         batch = x.size()[0]
         num_tokens = x.size()[1]
@@ -312,7 +313,7 @@ class Transformer(nn.Module):
 
     def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None):
         for r in self.resblocks:
-            if self.grad_checkpointing and not torch.jit.is_scripting():
+            if self.grad_checkpointing: # and not torch.jit.is_scripting():
                 # TODO: handle kwargs https://github.com/pytorch/pytorch/issues/79887#issuecomment-1161758372
                 x = checkpoint(r, x, None, None, attn_mask)
             else:
@@ -321,7 +322,7 @@ class Transformer(nn.Module):
 
 
 class VisionTransformer(nn.Module):
-    output_tokens: torch.jit.Final[bool]
+    # output_tokens: torch.jit.Final[bool]
 
     def __init__(
             self,
@@ -447,7 +448,7 @@ class VisionTransformer(nn.Module):
         #     nn.init.normal_(self.text_projection, std=self.scale)
         pass
 
-    @torch.jit.ignore
+    # @torch.jit.ignore
     def set_grad_checkpointing(self, enable=True):
         self.transformer.grad_checkpointing = enable
 
@@ -505,7 +506,7 @@ class VisionTransformer(nn.Module):
 
 
 class TextTransformer(nn.Module):
-    output_tokens: torch.jit.Final[bool]
+    # output_tokens: torch.jit.Final[bool]
 
     def __init__(
             self,
@@ -573,7 +574,7 @@ class TextTransformer(nn.Module):
         if self.text_projection is not None:
             nn.init.normal_(self.text_projection, std=self.transformer.width ** -0.5)
 
-    @torch.jit.ignore
+    # @torch.jit.ignore
     def set_grad_checkpointing(self, enable=True):
         self.transformer.grad_checkpointing = enable
 
@@ -706,7 +707,7 @@ class MultimodalTransformer(Transformer):
         seq_len = text_embs.shape[0]
 
         for resblock, cross_attn in zip(self.resblocks, self.cross_attn):
-            if self.grad_checkpointing and not torch.jit.is_scripting():
+            if self.grad_checkpointing: #and not torch.jit.is_scripting():
                 # TODO: handle kwargs https://github.com/pytorch/pytorch/issues/79887#issuecomment-1161758372
                 text_embs = checkpoint(resblock, text_embs, None, None, self.attn_mask[:seq_len, :seq_len])
                 text_embs = checkpoint(cross_attn, text_embs, image_embs, image_embs, None)
@@ -722,6 +723,6 @@ class MultimodalTransformer(Transformer):
 
         return x
 
-    @torch.jit.ignore
+    # @torch.jit.ignore
     def set_grad_checkpointing(self, enable=True):
         self.grad_checkpointing = enable

@@ -8,6 +8,18 @@ import os
 from tempfile import NamedTemporaryFile
 import numpy as np
 
+def get_all_free_gpus_ids(min_mem=23000):
+    try:
+        with NamedTemporaryFile() as f:
+            os.system(f"nvidia-smi -q -d Memory | grep -A5 GPU | grep Free > {f.name}")
+            memory_available = [int(x.split()[2]) for x in open(f.name, 'r').readlines()]
+        if max(memory_available) < min_mem:
+            print("Could not get any free GPU, probably results in a crash")
+            return []
+        return [i for i, mem in enumerate(memory_available) if mem > min_mem]
+    except:
+        print("Could not get any free GPU, probably results in a crash")
+        return []
 
 def get_free_gpu(min_mem=9000):
     try:

@@ -91,7 +91,7 @@ def get_dataloader(
     dataset_train = CustomImageDataset(image_dir, id_edge_graph_dict_train, preprocess_func)
     dataset_val = CustomImageDataset(image_dir, id_edge_graph_dict_val, preprocess_func)
     dataloader_train = DataLoader(dataset_train, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle)
-    dataloader_val = DataLoader(dataset_val, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle)
+    dataloader_val = DataLoader(dataset_val, batch_size=batch_size, num_workers=num_workers, shuffle=False)
 
     return dataloader_train, dataloader_val
 
