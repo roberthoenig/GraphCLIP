@@ -241,6 +241,7 @@ class GraphCLIP():
 
         # Training
         pbar_epochs = tqdm(range(self.config["train_args"]["epochs"]), position=0)
+        smallest_val_loss = np.inf
         for epoch in pbar_epochs:
             # Train
             model.train()
@@ -281,10 +282,19 @@ class GraphCLIP():
             pbar_epochs.set_postfix({'train_loss': train_loss, 'val_loss': val_loss})
             logging.info(f"Epoch {epoch}, average train_loss: {train_loss}, average val_loss: {val_loss}")
             # Save Checkpoint
-            if (epoch+1) % self.config["train_args"]["epochs_per_checkpoint"] == 0:
+            cp = self.config["train_args"]["epochs_per_checkpoint"]
+            if isinstance(cp, float):
+                if val_loss < min(smallest_val_loss, cp):
+                    do_cp = True
+                    smallest_val_loss = val_loss
+                else:
+                    do_cp = False
+            else:
+                do_cp = (epoch+1) % self.config["train_args"]["epochs_per_checkpoint"] == 0
+            if do_cp:
                 logging.info(f"Saving checkpoint...")
                 model.cpu()
-                torch.save(model, osp.join(self.config["experiment_dir"], f"checkpoint_{epoch+1}.pt"))
+                torch.save(model, osp.join(self.config["experiment_dir"], f"checkpoint_{epoch+1}_{val_loss:.2f}.pt"))
                 model.to(self.config["device"])
     
     def eval(self):
