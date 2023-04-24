@@ -12,7 +12,7 @@ from torch_geometric.data import Data
 from pathlib import Path
 
 # Embeds text with CLIP
-def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, metadata, coco_val_ids):
+def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, metadata, coco_val_ids, use_long_rel_enc):
     # y: [1, num_img_features]
     # TODO: normalize?
     y = img_enc(image_id_to_path[d['image_id']])
@@ -47,8 +47,14 @@ def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, metadata, coco_val_
     else:
         rel_txts = []
         for rel in d['relationships']:
-            rel_txt = rel['predicate']
-            rel_txts.append(rel_txt)
+            if use_long_rel_enc:
+                subj_txt = d['objects'][id_to_idx[rel['subject_id']]]['names'][0]
+                obj_txt = d['objects'][id_to_idx[rel['object_id']]]['names'][0]
+                rel_txt = rel['predicate']
+                compound_txt = " ".join([subj_txt, rel_txt, obj_txt])
+            else:
+                compound_txt = rel['predicate']
+            rel_txts.append(compound_txt)
         edge_attr = txt_enc(rel_txts)
     attrs_edge_attr = -3*torch.ones((n_attrs, 2), dtype=torch.int64)
     
@@ -68,10 +74,11 @@ def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, metadata, coco_val_
     return data
 
 class VisualGenome(InMemoryDataset):
-    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None, enc_cfg=None, n_samples="all", scene_graphs_filename="scene_graphs.json"):
+    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None, enc_cfg=None, n_samples="all", scene_graphs_filename="scene_graphs.json", use_long_rel_enc=None):
         self.enc_cfg = enc_cfg
         self.n_samples = n_samples
         self.scene_graphs_filename = scene_graphs_filename
+        self.use_long_rel_enc = use_long_rel_enc
         if transform == "add_master_node_with_bidirectional_edges":
             transform_fn = add_master_node_with_bidirectional_edges
         elif transform == "add_master_node_with_incoming_edges":
@@ -89,7 +96,7 @@ class VisualGenome(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return [f"data_{self.scene_graphs_filename}_{self.n_samples}_{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_use_clip_latents={self.enc_cfg['use_clip_latents']}_coco_annotated_with_attributes_6.pt"]
+        return [f"data_{self.scene_graphs_filename}_{self.n_samples}_{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_use_clip_latents={self.enc_cfg['use_clip_latents']}_use_long_rel_enc={self.use_long_rel_enc}_coco_annotated_with_attributes_6.pt"]
 
     def download(self):
         # Download to `self.raw_dir`.
@@ -161,7 +168,7 @@ class VisualGenome(InMemoryDataset):
                 return out                
         txt_enc_fn = clip_latent_txt_enc_fn if self.enc_cfg["use_clip_latents"] else clip_embedding_txt_enc
         logging.info("Producing PyG graphs...")
-        data_list = [dict_to_pyg_graph(d, img_enc_fn, txt_enc_fn, image_id_to_path, metadata, coco_val_ids)
+        data_list = [dict_to_pyg_graph(d, img_enc_fn, txt_enc_fn, image_id_to_path, metadata, coco_val_ids, self.use_long_rel_enc)
                      for d, metadata in tqdm(zip(scene_graphs_dict, image_data_dict))]
         logging.info(f"Total number of tokens used: {len(tokens_used)}")
 

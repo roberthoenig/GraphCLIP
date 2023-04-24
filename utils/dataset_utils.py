@@ -50,14 +50,15 @@ def dataset_filter(dataset, filters=[]):
 
 def add_master_node_with_bidirectional_edges(data):
     n_nodes = data.x.shape[0]
+    n_obj_nodes = len(data.obj_nodes)
     new_node = -4*torch.ones((1, 2), dtype=torch.int64)
     x = torch.cat([data.x, new_node])
     new_edges = torch.tensor([[n_nodes, t] for t in data.obj_nodes.tolist()] + [[t, n_nodes] for t in data.obj_nodes.tolist()], dtype=torch.int).t()
     edge_index = torch.cat([data.edge_index, new_edges], dim=1)
     edge_attr = torch.cat([
         data.edge_attr,
-        -1*torch.ones((n_nodes, 2), dtype=torch.int64),
-        -2*torch.ones((n_nodes, 2), dtype=torch.int64)
+        -1*torch.ones((n_obj_nodes, 2), dtype=torch.int64),
+        -2*torch.ones((n_obj_nodes, 2), dtype=torch.int64)
     ])
     d = {'x': x,
          'edge_index': edge_index,
