@@ -112,7 +112,7 @@ def batch_transform(fn, batch, *args):
 def tokens_to_embeddings(data, embedding):
     num_embs = embedding.num_embeddings
     data.edge_attr[data.edge_attr < 0] = num_embs + data.edge_attr[data.edge_attr < 0]
-    data.edge_attr = embedding(data.edge_attr).reshape(data.edge_attr.shape[0], -1)
+    data.edge_attr = embedding(torch.clone(data.edge_attr)).reshape(data.edge_attr.shape[0], -1)
     data.x[data.x < 0] += num_embs
     data.x = embedding(torch.clone(data.x)).reshape(data.x.shape[0], -1)
     return data
