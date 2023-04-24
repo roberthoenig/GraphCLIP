@@ -1,7 +1,7 @@
 import torch
-from datasets.visual_genome import VisualGenome
+from datasets.visual_genome import VisualGenome, VisualGenomeAdversarial
 from utils.dataset_utils import dataset_filter, transfer_attributes_batched, tokens_to_embeddings_batched
-from utils.eval_utils import compute_ranking_metrics_from_features
+from utils.eval_utils import compute_ranking_metrics_from_features, compute_accuracy_from_adversarial_features
 from tqdm import tqdm
 import torch
 import torch.nn.functional as F
@@ -289,4 +289,45 @@ class GraphCLIP():
             img_features=img_features,
             cap_features=cap_features,
             ks=self.config['eval_args']['ks']
+        )
+
+    def eval_adversarial(self):
+        # Model
+        model = torch.load(self.config["eval_args"]["load_checkpoint_path"])
+        model.to(self.config["device"])
+        model.eval()
+        
+        # Dataset
+        if self.config["dataset"] == "VisualGenomeAdversarial":
+            dataset = VisualGenomeAdversarial(**self.config["dataset_args"])
+            dataset = dataset_filter(dataset, **self.config["dataset_filter_args"])
+            train_val_split = self.config["eval_args"]["train_val_split"]
+            train_ratio = train_val_split
+            _, val_set = torch.utils.data.random_split(dataset, [train_ratio, 1-train_ratio])
+            val_set = dataset_filter(val_set, **self.config["valset_filter_args"])
+            val_dloader = DataLoader(val_set, batch_size=1, shuffle=False)
+        else:
+            raise Exception(f"Unkown dataset {self.config['dataset']}.")
+        # Compute features
+        with torch.no_grad(), torch.cuda.amp.autocast():
+            # (n_samples, emb_sz) 
+            logging.info("Computing groundtruth graph embeddings...")
+            graph_features_gt = torch.concat([model(sample["gt"].to(self.config["device"])).cpu() for sample in tqdm(val_dloader)])
+            # (n_samples, emb_sz) 
+            logging.info("Computing adversarial graph embeddings...")
+            graph_features_adv = torch.concat([model(sample["adv"].to(self.config["device"])).cpu() for sample in tqdm(val_dloader)])
+            # (n_samples, emb_sz) 
+            logging.info("Retrieving image embeddings...")
+            # Note: sample["gt"].y should be identical to sample["adv"].y
+            img_features = torch.concat([sample["gt"].y.cpu() for sample in tqdm(val_dloader)])
+            if self.config["eval_args"]["normalize"]:
+                img_features /= img_features.norm(dim=-1, keepdim=True)
+                graph_features_gt /= graph_features_gt.norm(dim=-1, keepdim=True)
+                graph_features_adv /= graph_features_adv.norm(dim=-1, keepdim=True)
+            
+        # Compute metrics
+        compute_accuracy_from_adversarial_features(
+            img_features=img_features,
+            graph_features_gt=graph_features_gt,
+            graph_features_adv=graph_features_adv,
         )

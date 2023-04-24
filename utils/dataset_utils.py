@@ -7,6 +7,7 @@ from tqdm import tqdm
 import logging
 import random
 import json
+import os.path as osp
 
 def unzip_file(zip_path, target_dir):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
@@ -118,3 +119,45 @@ def tokens_to_embeddings(data, embedding):
 
 def tokens_to_embeddings_batched(batch, embeddings):
     return batch_transform(tokens_to_embeddings, batch, embeddings)
+
+def process_adversarial_dataset(in_dir, in_fname):
+    with open(osp.join(in_dir, in_fname), 'r') as f:
+        adv_data = json.load(f)
+    data_gt = []
+    data_adv = []
+    for _,v in sorted(adv_data.items()):
+        for target in ["gt", "adv"]:
+            image_id = v["image_id"]
+            object_id = v["changed_edge_obj"]
+            subject_id = v["changed_edge_subj"]
+            predicate = v["original_predicate" if target == "gt" else "adv_predicate"]
+            objects = [
+                {
+                    'names': [v['subj_name']],
+                    'object_id': subject_id,
+                },
+                {
+                    'names': [v['obj_name']],
+                    'object_id': object_id,
+                },
+            ]
+            relationships = [{
+                'object_id': object_id,
+                'subject_id': subject_id,
+                'predicate': predicate,
+            }]
+            sample = {
+                'image_id': image_id,
+                'objects': objects,
+                'relationships': relationships,
+            }
+            if target == "gt":
+                data_gt.append(sample)
+            else:
+                data_adv.append(sample)
+        
+    with open(osp.join(in_dir, "scene_graphs_gt.json"), 'w') as f:
+        json.dump(data_gt, f)
+
+    with open(osp.join(in_dir, "scene_graphs_adv.json"), 'w') as f:
+        json.dump(data_adv, f)

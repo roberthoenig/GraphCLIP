@@ -1,4 +1,5 @@
 import logging
+from unittest import result
 import torch
 import pprint
 from tqdm import tqdm
@@ -73,3 +74,16 @@ def compute_ranking_metrics_from_features(img_features, cap_features, ks):
     lists_to_mean(result)
     logging.info("Result: " + pprint.pformat(result))
     return result
+
+# img_features: (n_samples, emb_sz) 
+# graph_features_gt: (n_samples, emb_sz) 
+# graph_features_adv: (n_samples, emb_sz) 
+def compute_accuracy_from_adversarial_features(img_features, graph_features_gt, graph_features_adv):
+    scores_gt = (img_features * graph_features_gt).sum(dim=-1)
+    scores_adv = (img_features * graph_features_adv).sum(dim=-1)
+    is_correct = scores_gt > scores_adv
+    acc = is_correct.float().mean()
+    result = {
+        "accuracy": f"{acc:.2f}"
+    }
+    logging.info("Result: " + pprint.pformat(result))

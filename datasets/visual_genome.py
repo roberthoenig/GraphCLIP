@@ -1,6 +1,7 @@
 import torch
 from torch_geometric.data import InMemoryDataset, download_url
-from utils.dataset_utils import add_master_node_with_bidirectional_edges, add_master_node_with_incoming_edges, unzip_file
+from torch.utils.data import Dataset
+from utils.dataset_utils import add_master_node_with_bidirectional_edges, add_master_node_with_incoming_edges, process_adversarial_dataset, unzip_file
 import os.path as osp
 import json
 from tqdm import tqdm
@@ -67,9 +68,10 @@ def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, metadata, coco_val_
     return data
 
 class VisualGenome(InMemoryDataset):
-    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None, enc_cfg=None, n_samples="all"):
+    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None, enc_cfg=None, n_samples="all", scene_graphs_filename="scene_graphs.json"):
         self.enc_cfg = enc_cfg
         self.n_samples = n_samples
+        self.scene_graphs_filename = scene_graphs_filename
         if transform == "add_master_node_with_bidirectional_edges":
             transform_fn = add_master_node_with_bidirectional_edges
         elif transform == "add_master_node_with_incoming_edges":
@@ -83,11 +85,11 @@ class VisualGenome(InMemoryDataset):
 
     @property
     def raw_file_names(self):
-        return ['scene_graphs.json.zip', 'images.zip', 'images2.zip', 'image_data.json.zip', 'annotations_trainval2017.zip']
+        return ['scene_graphs.json.zip', 'images.zip', 'images2.zip', 'image_data.json.zip', 'annotations_trainval2017.zip', 'realistic_adversarial_samples.json']
 
     @property
     def processed_file_names(self):
-        return [f"data_{self.n_samples}_{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_use_clip_latents={self.enc_cfg['use_clip_latents']}_coco_annotated_with_attributes_6.pt"]
+        return [f"data_{self.scene_graphs_filename}_{self.n_samples}_{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_use_clip_latents={self.enc_cfg['use_clip_latents']}_coco_annotated_with_attributes_6.pt"]
 
     def download(self):
         # Download to `self.raw_dir`.
@@ -105,9 +107,11 @@ class VisualGenome(InMemoryDataset):
         download_and_unzip_if_not_exist("http://images.cocodataset.org/annotations/annotations_trainval2017.zip", 4)
 
     def process(self):
+        logging.info("Processing adversarial dataset...")
+        process_adversarial_dataset(in_dir=self.raw_dir, in_fname=self.raw_file_names[5])
         # Read data into huge `Data` list.
         logging.info("Loading scene graph JSON file...")
-        with open(osp.join(self.raw_dir, "scene_graphs.json"), 'r') as f:
+        with open(osp.join(self.raw_dir, self.scene_graphs_filename), 'r') as f:
             scene_graphs_dict = json.load(f)
         logging.info("Loading image data JSON file...")
         with open(osp.join(self.raw_dir, "image_data.json"), 'r') as f:
@@ -172,3 +176,18 @@ class VisualGenome(InMemoryDataset):
 
         logging.info("Saving PyG graphs...")
         torch.save((data, slices), self.processed_paths[0])
+
+
+class VisualGenomeAdversarial(Dataset):
+    def __init__(self, *args, **kwargs):
+        self.dataset_gt = VisualGenome(*args, **kwargs,  scene_graphs_filename="scene_graphs_gt.json")
+        self.dataset_adv = VisualGenome(*args, **kwargs, scene_graphs_filename="scene_graphs_adv.json")
+
+    def __len__(self):
+        return len(self.dataset_gt)
+
+    def __getitem__(self, idx):
+        return {
+            "gt": self.dataset_gt[idx],
+            "adv": self.dataset_adv[idx],
+        }

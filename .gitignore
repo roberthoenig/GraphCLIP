@@ -119,3 +119,11 @@ notes.md
 *tmp*
 wandb
 settings.json
+
+image_ids_chatgpt.json
+image_ids_visual_genome.json
+test.json
+test.py
+scripts/chatgpt/captions.json
+scripts/chatgpt/captions_filtered.json
+scripts/explore_chatgpt_captions.py

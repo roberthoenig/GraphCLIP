@@ -39,6 +39,9 @@ Run an experiment.
     elif config["type"] == "eval":
         logging.info("Evaluating model...")
         model.eval()
+    elif config["type"] == "eval_adversarial":
+        logging.info("Evaluating model adversarially...")
+        model.eval_adversarial()
     else:
         raise Exception(f"Unkown experiment type {config['type']}")
 
