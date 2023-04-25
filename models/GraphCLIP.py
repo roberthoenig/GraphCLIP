@@ -242,6 +242,8 @@ class GraphCLIP():
                 model = GNN6(**self.config["model_args"]["arch_args"])
             elif arch == "GNN7":
                 model = GNN7(**self.config["model_args"]["arch_args"])
+            elif arch == "GNN8":
+                model = GNN8(**self.config["model_args"]["arch_args"])
             else:
                 raise Exception(f"Unknown architecture {arch}.")
         model.to(self.config["device"])
