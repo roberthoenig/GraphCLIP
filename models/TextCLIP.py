@@ -8,6 +8,8 @@ from tqdm import tqdm
 import logging
 from pprint import pprint
 
+from utils.model_utils import count_parameters
+
 class TextCLIP():
     def __init__(self, config):
         self.config = config
@@ -49,6 +51,10 @@ class TextCLIP():
         pretrained = self.config["model_args"]["pretrained"]
         model, _, preprocess = open_clip.create_model_and_transforms(model_name=model_name, pretrained=pretrained, device=self.config["device"])
         tokenizer = open_clip.get_tokenizer(model_name=model_name)
+
+        logging.info(f"Text encoder parameter count (without embedding): {count_parameters(model.transformer)}")
+        logging.info(f"Text embedding parameter count: {count_parameters(model.token_embedding)}")
+        logging.info(f"Image encoder parameter count: {count_parameters(model.visual)}")
         
         # Dataset
         if self.config["dataset"] == "VisualGenomeAdversarialText":
@@ -64,7 +70,6 @@ class TextCLIP():
             # (n_samples, emb_sz) 
             logging.info("Computing adversarial text embeddings...")
             features_adv = torch.concat([model.encode_text(tokenizer(c).to(self.config["device"])).cpu() for c in tqdm(dataset.captions_adv)])
-            pprint(list(zip(dataset.captions_gt, dataset.captions_adv, dataset.img_paths)))
             # (n_samples, emb_sz) 
             logging.info("Retrieving image embeddings...")
             img_features = torch.concat([model.encode_image(preprocess(Image.open(path)).to(self.config["device"]).unsqueeze(0)).cpu() for path in tqdm(dataset.img_paths)])

@@ -7,3 +7,6 @@ def global_master_pool(x, batch):
     last_occurrence_indices = torch.cumsum(counts, dim=0) - 1
     out = x[last_occurrence_indices]
     return out
+
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
