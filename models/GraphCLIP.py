@@ -9,7 +9,7 @@ from torch_geometric.nn import GCNConv, global_mean_pool, GATv2Conv
 from torch_geometric.loader import DataLoader
 from torch_geometric.utils import dropout_node
 from utils.train_utils import contrastive_adv_loss, contrastive_loss
-from utils.model_utils import global_master_pool
+from utils.model_utils import dropout_node_keep_master_nodes, global_master_pool
 import logging
 import numpy as np
 import os.path as osp
@@ -174,6 +174,41 @@ class GNN7(torch.nn.Module):
         data = tokens_to_embeddings_batched(data, self.embedding)
         x, edge_index, edge_attr, batch = data.x, data.edge_index, data.edge_attr, data.batch
         edge_index, edge_mask, _ = dropout_node(edge_index, training=self.training, p=self.p_dropout)
+        edge_attr = edge_attr[edge_mask]
+        x = self.conv1(x, edge_index, edge_attr)
+        x = F.relu(x)
+        x = self.conv2(x, edge_index, edge_attr)
+        x = F.relu(x)
+        x = self.conv3(x, edge_index, edge_attr)
+        x = global_master_pool(x, batch)
+        return x
+
+# Like GNN7, but fixes dropout to not drop the master node.
+class GNN8(torch.nn.Module):
+    def __init__(self, in_dim, out_dim, edge_dim, middle_dim, p_dropout, model_name, pretrained, freeze_embedding, embedding_init):
+        super().__init__()
+        self.conv1 = GATv2Conv(in_dim, middle_dim, heads=2, concat=False, edge_dim=edge_dim)
+        self.conv2 = GATv2Conv(middle_dim, middle_dim, heads=2, concat=False, edge_dim=edge_dim)
+        self.conv3 = GATv2Conv(middle_dim, out_dim, heads=2, concat=False, edge_dim=edge_dim)
+        self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
+        self.p_dropout = p_dropout
+        model, _, _ = open_clip.create_model_and_transforms(model_name=model_name, pretrained=pretrained, device="cpu")
+        emb_dim = model.token_embedding.embedding_dim
+        if embedding_init == 'random':
+            new_shape = list(model.token_embedding.weight.shape)
+            new_shape[0] += 4
+            weights = torch.randn(new_shape)
+        elif embedding_init == 'CLIP':
+            new_embs = torch.sin(torch.arange(4, dtype=torch.float).reshape(-1,1) * torch.arange(emb_dim, dtype=torch.float).reshape(1,-1))
+            weights = torch.cat([model.token_embedding.weight, new_embs])
+        else:
+            raise Exception(f"Unknown embedding_init {embedding_init}.")
+        self.embedding = torch.nn.Embedding.from_pretrained(weights, freeze=freeze_embedding)
+
+    def forward(self, data):
+        data = tokens_to_embeddings_batched(data, self.embedding)
+        x, edge_index, edge_attr, batch = data.x, data.edge_index, data.edge_attr, data.batch
+        edge_index, edge_mask, _ = dropout_node_keep_master_nodes(edge_index=edge_index, batch=batch, training=self.training, p=self.p_dropout)
         edge_attr = edge_attr[edge_mask]
         x = self.conv1(x, edge_index, edge_attr)
         x = F.relu(x)
