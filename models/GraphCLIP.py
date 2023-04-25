@@ -359,22 +359,22 @@ class GraphCLIP():
         with torch.no_grad(), torch.cuda.amp.autocast():
             # (n_samples, emb_sz) 
             logging.info("Computing groundtruth graph embeddings...")
-            graph_features_gt = torch.concat([model(sample["gt"].to(self.config["device"])).cpu() for sample in tqdm(val_dloader)])
+            features_gt = torch.concat([model(sample["gt"].to(self.config["device"])).cpu() for sample in tqdm(val_dloader)])
             # (n_samples, emb_sz) 
             logging.info("Computing adversarial graph embeddings...")
-            graph_features_adv = torch.concat([model(sample["adv"].to(self.config["device"])).cpu() for sample in tqdm(val_dloader)])
+            features_adv = torch.concat([model(sample["adv"].to(self.config["device"])).cpu() for sample in tqdm(val_dloader)])
             # (n_samples, emb_sz) 
             logging.info("Retrieving image embeddings...")
             # Note: sample["gt"].y should be identical to sample["adv"].y
             img_features = torch.concat([sample["gt"].y.cpu() for sample in tqdm(val_dloader)])
             if self.config["eval_args"]["normalize"]:
                 img_features /= img_features.norm(dim=-1, keepdim=True)
-                graph_features_gt /= graph_features_gt.norm(dim=-1, keepdim=True)
-                graph_features_adv /= graph_features_adv.norm(dim=-1, keepdim=True)
+                features_gt /= features_gt.norm(dim=-1, keepdim=True)
+                features_adv /= features_adv.norm(dim=-1, keepdim=True)
             
         # Compute metrics
         compute_accuracy_from_adversarial_features(
             img_features=img_features,
-            graph_features_gt=graph_features_gt,
-            graph_features_adv=graph_features_adv,
+            features_gt=features_gt,
+            features_adv=features_adv,
         )

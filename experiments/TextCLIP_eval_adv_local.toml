@@ -1,0 +1,15 @@
+model = "TextCLIP"
+dataset = "VisualGenomeAdversarialText"
+seed = 123456
+device = "cpu"
+type = "eval_adversarial"
+
+[dataset_args]
+root = "datasets/visual_genome"
+
+[model_args]
+model_name = "RN50"
+pretrained = "openai"
+
+[eval_args]
+normalize = true
