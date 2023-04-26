@@ -1,6 +1,6 @@
 import torch
 from datasets.visual_genome import VisualGenome, VisualGenomeAdversarial
-from utils.dataset_utils import dataset_filter, transfer_attributes_batched, tokens_to_embeddings_batched
+from utils.dataset_utils import dataset_filter, make_sample_relation_batched, transfer_attributes_batched, tokens_to_embeddings_batched
 from utils.eval_utils import compute_ranking_metrics_from_features, compute_accuracy_from_adversarial_features
 from tqdm import tqdm
 import torch
@@ -218,6 +218,47 @@ class GNN8(torch.nn.Module):
         x = global_master_pool(x, batch)
         return x
 
+# Like GNN8, but supports adversarial relation sampling.
+class GNN9(torch.nn.Module):
+    def __init__(self, in_dim, out_dim, edge_dim, middle_dim, p_dropout, model_name, pretrained, freeze_embedding, embedding_init):
+        super().__init__()
+        self.conv1 = GATv2Conv(in_dim, middle_dim, heads=2, concat=False, edge_dim=edge_dim)
+        self.conv2 = GATv2Conv(middle_dim, middle_dim, heads=2, concat=False, edge_dim=edge_dim)
+        self.conv3 = GATv2Conv(middle_dim, out_dim, heads=2, concat=False, edge_dim=edge_dim)
+        self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
+        self.p_dropout = p_dropout
+        model, _, _ = open_clip.create_model_and_transforms(model_name=model_name, pretrained=pretrained, device="cpu")
+        emb_dim = model.token_embedding.embedding_dim
+        if embedding_init == 'random':
+            new_shape = list(model.token_embedding.weight.shape)
+            new_shape[0] += 4
+            weights = torch.randn(new_shape)
+        elif embedding_init == 'CLIP':
+            new_embs = torch.sin(torch.arange(4, dtype=torch.float).reshape(-1,1) * torch.arange(emb_dim, dtype=torch.float).reshape(1,-1))
+            weights = torch.cat([model.token_embedding.weight, new_embs])
+        else:
+            raise Exception(f"Unknown embedding_init {embedding_init}.")
+        self.embedding = torch.nn.Embedding.from_pretrained(weights, freeze=freeze_embedding)
+
+    def forward(self, data, exclude_from_dropout=None, return_dropout_mask=False, dropout_mask=None):
+        data = tokens_to_embeddings_batched(data, self.embedding)
+        x, edge_index, edge_attr, batch = data.x, data.edge_index, data.edge_attr, data.batch
+        edge_index, edge_mask, node_mask = dropout_node_keep_master_nodes(edge_index=edge_index,
+                                                                  batch=batch, training=self.training,
+                                                                  p=self.p_dropout, exclude_from_dropout=exclude_from_dropout,
+                                                                  dropout_mask=dropout_mask)
+        edge_attr = edge_attr[edge_mask]
+        x = self.conv1(x, edge_index, edge_attr)
+        x = F.relu(x)
+        x = self.conv2(x, edge_index, edge_attr)
+        x = F.relu(x)
+        x = self.conv3(x, edge_index, edge_attr)
+        x = global_master_pool(x, batch)
+        if return_dropout_mask:
+            return x, node_mask
+        else:
+            return x
+
 class GraphCLIP():
     def __init__(self, config):
         self.config = config
@@ -244,6 +285,8 @@ class GraphCLIP():
                 model = GNN7(**self.config["model_args"]["arch_args"])
             elif arch == "GNN8":
                 model = GNN8(**self.config["model_args"]["arch_args"])
+            elif arch == "GNN9":
+                model = GNN9(**self.config["model_args"]["arch_args"])
             else:
                 raise Exception(f"Unknown architecture {arch}.")
         model.to(self.config["device"])
@@ -256,6 +299,7 @@ class GraphCLIP():
             dataset = VisualGenome(**self.config["dataset_args"])
         else:
             raise Exception(f"Unkown dataset {self.config['dataset']}.")
+        txt_enc = dataset.clip_embedding_txt_enc
         dataset = dataset_filter(dataset, **self.config["dataset_filter_args"])
         train_val_split = self.config["train_args"]["train_val_split"]
         if train_val_split == "mscoco":
@@ -273,6 +317,8 @@ class GraphCLIP():
         adv_transform = self.config["train_args"].get("adv_transform", None)
         if adv_transform == "transfer_attributes":
             adv_transform = transfer_attributes_batched
+        if adv_transform == "sample_relation":
+            adv_transform = make_sample_relation_batched(txt_enc)
         elif adv_transform is not None:
             logging.info(f"Unknown adversarial transform {adv_transform}.")
 
@@ -288,10 +334,12 @@ class GraphCLIP():
             for data in pbar_train:
                 optimizer.zero_grad()
                 if adv_transform is not None:
-                    adv_data = adv_transform(data)
+                    adv_data = adv_transform(data.clone())
                     adv_data = adv_data.to(self.config["device"])
                     data = data.to(self.config["device"])
-                    loss = contrastive_adv_loss(model(data), model(adv_data), data.y, model.logit_scale)
+                    y_adv, dropout_mask = model(adv_data, exclude_from_dropout=adv_data.adv_affected_nodes, return_dropout_mask=True)
+                    y_pred = model(data, dropout_mask=dropout_mask)
+                    loss = contrastive_adv_loss(y_pred, y_adv, data.y, model.logit_scale)
                 else:
                     data = data.to(self.config["device"])
                     loss = contrastive_loss(model(data), data.y, model.logit_scale)

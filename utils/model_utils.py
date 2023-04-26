@@ -15,7 +15,9 @@ def global_master_pool(x, batch):
 
 def dropout_node_keep_master_nodes(edge_index, batch, p = 0.5,
                  num_nodes = None,
-                 training = True):
+                 training = True,
+                 exclude_from_dropout=None,
+                 dropout_mask=None):
     if p < 0. or p > 1.:
         raise ValueError(f'Dropout probability has to be between 0 and 1 '
                          f'(got {p}')
@@ -27,9 +29,14 @@ def dropout_node_keep_master_nodes(edge_index, batch, p = 0.5,
         edge_mask = edge_index.new_ones(edge_index.size(1), dtype=torch.bool)
         return edge_index, edge_mask, node_mask
 
-    prob = torch.rand(num_nodes, device=edge_index.device)
-    node_mask = prob > p
-    node_mask[get_master_node_indices(batch)] = True
+    if dropout_mask is None:
+        prob = torch.rand(num_nodes, device=edge_index.device)
+        node_mask = prob > p
+        node_mask[get_master_node_indices(batch)] = True
+        if exclude_from_dropout is not None:
+            node_mask[exclude_from_dropout] = True
+    else:
+        node_mask = dropout_mask
     edge_index, _, edge_mask = subgraph(node_mask, edge_index,
                                         num_nodes=num_nodes,
                                         return_edge_mask=True)

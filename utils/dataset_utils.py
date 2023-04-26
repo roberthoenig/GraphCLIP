@@ -8,6 +8,7 @@ import logging
 import random
 import json
 import os.path as osp
+import numpy as np
 
 def unzip_file(zip_path, target_dir):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
@@ -100,8 +101,28 @@ def transfer_attributes(data):
     data.edge_index[1, edge_idx] = node_to_receive
     return data
 
+with open("datasets/visual_genome/raw/relation_distribution.json", "r") as f:
+    rel_distr = json.load(f)
+
+def sample_relation(data, txt_enc):
+    unchanged = True
+    while unchanged:
+        rel_to_replace = random.randint(0, data.edge_index.shape[1]-1)
+        rel_replacement = np.random.choice(rel_distr["words"], p=rel_distr["probs"])
+        replacement_tokens = txt_enc([rel_replacement])[0]
+        if not (data.edge_attr[rel_to_replace] == replacement_tokens).all():
+            data.edge_attr[rel_to_replace] = replacement_tokens
+            unchanged = False
+            data.adv_affected_nodes = data.edge_index[:, rel_to_replace]
+    return data
+
 def transfer_attributes_batched(batch):
     return batch_transform(transfer_attributes, batch)
+
+def make_sample_relation_batched(txt_enc):
+    def sample_relation_batched(batch):
+        return batch_transform(sample_relation, batch, txt_enc)
+    return sample_relation_batched
 
 def batch_transform(fn, batch, *args):
     data_list = batch.to_data_list()

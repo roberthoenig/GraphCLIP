@@ -87,6 +87,15 @@ class VisualGenome(InMemoryDataset):
             transform_fn = lambda x: x
         else:
             raise Exception(f"Unknown transform {transform}.")
+        tokenizer = open_clip.get_tokenizer(model_name=self.enc_cfg["model_name"])
+        def clip_embedding_txt_enc(txts):
+           with torch.no_grad():
+                tokens = tokenizer(txts)
+                tokens[tokens == 49407] = 0
+                tokens = tokens[:, 1:3]
+                out = tokens.cpu()
+                return out  
+        self.clip_embedding_txt_enc = clip_embedding_txt_enc
         super().__init__(root, transform_fn, pre_transform, pre_filter)
         self.data, self.slices = torch.load(self.processed_paths[0])
 
@@ -157,20 +166,10 @@ class VisualGenome(InMemoryDataset):
         def clip_latent_txt_enc_fn(txts):
             with torch.no_grad():
                 return model.encode_text(tokenizer(txts).to(self.enc_cfg["device"])).cpu()
-        tokens_used = set()
-        def clip_embedding_txt_enc(txts):
-           with torch.no_grad():
-                tokens = tokenizer(txts).to(self.enc_cfg["device"])
-                tokens[tokens == 49407] = 0
-                tokens = tokens[:, 1:3]
-                tokens_used.update(tokens.flatten().tolist())
-                out = tokens.cpu()
-                return out                
-        txt_enc_fn = clip_latent_txt_enc_fn if self.enc_cfg["use_clip_latents"] else clip_embedding_txt_enc
+        txt_enc_fn = clip_latent_txt_enc_fn if self.enc_cfg["use_clip_latents"] else self.clip_embedding_txt_enc
         logging.info("Producing PyG graphs...")
         data_list = [dict_to_pyg_graph(d, img_enc_fn, txt_enc_fn, image_id_to_path, metadata, coco_val_ids, self.use_long_rel_enc)
                      for d, metadata in tqdm(zip(scene_graphs_dict, image_data_dict))]
-        logging.info(f"Total number of tokens used: {len(tokens_used)}")
 
         if self.pre_filter is not None:
             data_list = [data for data in data_list if self.pre_filter(data)]
