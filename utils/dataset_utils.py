@@ -103,12 +103,16 @@ def transfer_attributes(data):
 
 with open("datasets/visual_genome/raw/relation_distribution.json", "r") as f:
     rel_distr = json.load(f)
+rel_replacements = np.random.choice(rel_distr["words"], size=10_000_000, p=rel_distr["probs"])
+rel_ctr = 0
 
 def sample_relation(data, txt_enc):
+    global rel_ctr
     unchanged = True
     while unchanged:
         rel_to_replace = random.randint(0, data.edge_index.shape[1]-1)
-        rel_replacement = np.random.choice(rel_distr["words"], p=rel_distr["probs"])
+        rel_replacement = rel_replacements[rel_ctr % len(rel_replacements)]
+        rel_ctr += 1
         replacement_tokens = txt_enc([rel_replacement])[0]
         if not (data.edge_attr[rel_to_replace] == replacement_tokens).all():
             data.edge_attr[rel_to_replace] = replacement_tokens
