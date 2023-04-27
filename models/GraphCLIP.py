@@ -5,7 +5,7 @@ from utils.eval_utils import compute_ranking_metrics_from_features, compute_accu
 from tqdm import tqdm
 import torch
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, global_mean_pool, GATv2Conv
+from torch_geometric.nn import GCNConv, global_mean_pool, GATv2Conv, TransformerConv
 from torch_geometric.loader import DataLoader
 from torch_geometric.utils import dropout_node
 from utils.train_utils import contrastive_adv_loss, contrastive_loss
@@ -266,6 +266,49 @@ class GNN10(torch.nn.Module):
         self.conv1 = GATv2Conv(in_dim, middle_dim, heads=2, concat=False, edge_dim=edge_projected_dim)
         self.conv2 = GATv2Conv(middle_dim, middle_dim, heads=2, concat=False, edge_dim=edge_projected_dim)
         self.conv3 = GATv2Conv(middle_dim, out_dim, heads=2, concat=False, edge_dim=edge_projected_dim)
+        self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
+        self.p_dropout = p_dropout
+        self.project_edges = torch.nn.Linear(edge_dim, edge_projected_dim)
+        model, _, _ = open_clip.create_model_and_transforms(model_name=model_name, pretrained=pretrained, device="cpu")
+        emb_dim = model.token_embedding.embedding_dim
+        if embedding_init == 'random':
+            new_shape = list(model.token_embedding.weight.shape)
+            new_shape[0] += 4
+            weights = torch.randn(new_shape)
+        elif embedding_init == 'CLIP':
+            new_embs = torch.sin(torch.arange(4, dtype=torch.float).reshape(-1,1) * torch.arange(emb_dim, dtype=torch.float).reshape(1,-1))
+            weights = torch.cat([model.token_embedding.weight, new_embs])
+        else:
+            raise Exception(f"Unknown embedding_init {embedding_init}.")
+        self.embedding = torch.nn.Embedding.from_pretrained(weights, freeze=freeze_embedding)
+
+    def forward(self, data, exclude_from_dropout=None, return_dropout_mask=False, dropout_mask=None):
+        data = tokens_to_embeddings_batched(data, self.embedding)
+        x, edge_index, edge_attr, batch = data.x, data.edge_index, data.edge_attr, data.batch
+        edge_index, edge_mask, node_mask = dropout_node_keep_master_nodes(edge_index=edge_index,
+                                                                  batch=batch, training=self.training,
+                                                                  p=self.p_dropout, exclude_from_dropout=exclude_from_dropout,
+                                                                  dropout_mask=dropout_mask)
+        edge_attr = edge_attr[edge_mask]
+        edge_attr = self.project_edges(edge_attr)
+        x = self.conv1(x, edge_index, edge_attr)
+        x = F.relu(x)
+        x = self.conv2(x, edge_index, edge_attr)
+        x = F.relu(x)
+        x = self.conv3(x, edge_index, edge_attr)
+        x = global_master_pool(x, batch)
+        if return_dropout_mask:
+            return x, node_mask
+        else:
+            return x
+
+# Like GNN10, but uses TransformerConv instead of GATv2Conv.
+class GNN11(torch.nn.Module):
+    def __init__(self, in_dim, out_dim, edge_dim, edge_projected_dim, middle_dim, p_dropout, model_name, pretrained, freeze_embedding, embedding_init):
+        super().__init__()
+        self.conv1 = TransformerConv(in_dim, middle_dim, heads=2, concat=False, edge_dim=edge_projected_dim)
+        self.conv2 = TransformerConv(middle_dim, middle_dim, heads=2, concat=False, edge_dim=edge_projected_dim)
+        self.conv3 = TransformerConv(middle_dim, out_dim, heads=2, concat=False, edge_dim=edge_projected_dim)
         self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
         self.p_dropout = p_dropout
         self.project_edges = torch.nn.Linear(edge_dim, edge_projected_dim)
