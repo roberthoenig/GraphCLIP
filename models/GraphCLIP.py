@@ -492,7 +492,7 @@ class GraphCLIP():
             raise Exception(f"Unkown dataset {self.config['dataset']}.")
         
         # Compute features
-        with torch.no_grad(), torch.cuda.amp.autocast():
+        with torch.no_grad():
             # (n_samples, emb_sz) 
             logging.info("Computing image embeddings.")
             img_features = torch.concat([model(data.to(self.config["device"])).cpu() for data in tqdm(val_dloader)])
@@ -529,7 +529,7 @@ class GraphCLIP():
         else:
             raise Exception(f"Unkown dataset {self.config['dataset']}.")
         # Compute features
-        with torch.no_grad(), torch.cuda.amp.autocast():
+        with torch.no_grad():
             # (n_samples, emb_sz) 
             logging.info("Computing groundtruth graph embeddings...")
             features_gt = torch.concat([model(sample["gt"].to(self.config["device"])).cpu() for sample in tqdm(val_dloader)])
