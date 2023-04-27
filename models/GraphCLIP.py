@@ -1,11 +1,12 @@
 import torch
 from datasets.visual_genome import VisualGenome, VisualGenomeAdversarial
+from models.MyTransformerConv import MyTransformerConv
 from utils.dataset_utils import dataset_filter, make_sample_relation_batched, transfer_attributes_batched, tokens_to_embeddings_batched
 from utils.eval_utils import compute_ranking_metrics_from_features, compute_accuracy_from_adversarial_features
 from tqdm import tqdm
 import torch
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, global_mean_pool, GATv2Conv, TransformerConv
+from torch_geometric.nn import GCNConv, global_mean_pool, GATv2Conv
 from torch_geometric.loader import DataLoader
 from torch_geometric.utils import dropout_node
 from utils.train_utils import contrastive_adv_loss, contrastive_loss
@@ -306,9 +307,9 @@ class GNN10(torch.nn.Module):
 class GNN11(torch.nn.Module):
     def __init__(self, in_dim, out_dim, edge_dim, edge_projected_dim, middle_dim, p_dropout, model_name, pretrained, freeze_embedding, embedding_init):
         super().__init__()
-        self.conv1 = TransformerConv(in_dim, middle_dim, heads=2, concat=False, edge_dim=edge_projected_dim)
-        self.conv2 = TransformerConv(middle_dim, middle_dim, heads=2, concat=False, edge_dim=edge_projected_dim)
-        self.conv3 = TransformerConv(middle_dim, out_dim, heads=2, concat=False, edge_dim=edge_projected_dim)
+        self.conv1 = MyTransformerConv(in_dim, middle_dim, heads=2, concat=False, edge_dim=edge_projected_dim)
+        self.conv2 = MyTransformerConv(middle_dim, middle_dim, heads=2, concat=False, edge_dim=edge_projected_dim)
+        self.conv3 = MyTransformerConv(middle_dim, out_dim, heads=2, concat=False, edge_dim=edge_projected_dim)
         self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
         self.p_dropout = p_dropout
         self.project_edges = torch.nn.Linear(edge_dim, edge_projected_dim)
