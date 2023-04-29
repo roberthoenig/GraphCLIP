@@ -349,7 +349,7 @@ class GNN11(torch.nn.Module):
         
 # Like GNN10, but MetaConv layer.
 class GNN12(torch.nn.Module):
-    def __init__(self, in_dim, out_dim, edge_dim, edge_projected_dim, middle_dim, p_dropout, model_name, pretrained, freeze_embedding, embedding_init):
+    def __init__(self, in_dim, out_dim, edge_dim, edge_projected_dim, middle_dim, p_dropout, model_name, pretrained, freeze_embedding, embedding_init, zero_edge_attr=False):
         super().__init__()
         self.conv1 = construct_my_layer(node_in_dim=in_dim, node_out_dim=middle_dim, edge_in_dim=edge_projected_dim)
         self.conv2 = construct_my_layer(node_in_dim=middle_dim, node_out_dim=middle_dim, edge_in_dim=edge_projected_dim)
@@ -377,6 +377,8 @@ class GNN12(torch.nn.Module):
                                                                   batch=batch, training=self.training,
                                                                   p=self.p_dropout, exclude_from_dropout=exclude_from_dropout,
                                                                   dropout_mask=dropout_mask)
+        if self.zero_edge_attr:
+            edge_attr[True] = 0
         edge_attr = edge_attr[edge_mask]
         edge_attr = self.project_edges(edge_attr)
         x, edge_attr, _ = self.conv1(x, edge_index, edge_attr)
