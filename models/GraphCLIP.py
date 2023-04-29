@@ -357,6 +357,7 @@ class GNN12(torch.nn.Module):
         self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
         self.p_dropout = p_dropout
         self.project_edges = torch.nn.Linear(edge_dim, edge_projected_dim)
+        self.zero_edge_attr = zero_edge_attr
         model, _, _ = open_clip.create_model_and_transforms(model_name=model_name, pretrained=pretrained, device="cpu")
         emb_dim = model.token_embedding.embedding_dim
         if embedding_init == 'random':
