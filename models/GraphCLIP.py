@@ -460,7 +460,7 @@ class GraphCLIP():
         if adv_transform == "transfer_attributes":
             adv_transform = transfer_attributes_batched
         if adv_transform == "sample_relation":
-            adv_transform = make_sample_relation_batched(txt_enc)
+            adv_transform = make_sample_relation_batched(txt_enc, **self.config['train_args'].get('adv_transform_args', dict()))
         elif adv_transform is not None:
             logging.info(f"Unknown adversarial transform {adv_transform}.")
 

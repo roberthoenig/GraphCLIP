@@ -103,29 +103,37 @@ def transfer_attributes(data):
 
 with open("datasets/visual_genome/raw/relation_distribution.json", "r") as f:
     rel_distr = json.load(f)
-rel_replacements = np.random.choice(rel_distr["words"], size=10_000_000, p=rel_distr["probs"])
+SZ = 1_000_000
+rel_replacements = np.random.choice(rel_distr["words"], size=SZ, p=rel_distr["probs"])
 rel_ctr = 0
 
-def sample_relation(data, txt_enc):
+def sample_relation(data, txt_enc, replacement_prob):
     global rel_ctr
-    unchanged = True
-    while unchanged:
-        rel_to_replace = random.randint(0, data.edge_index.shape[1]-1)
-        rel_replacement = rel_replacements[rel_ctr % len(rel_replacements)]
-        rel_ctr += 1
-        replacement_tokens = txt_enc([rel_replacement])[0]
-        if not (data.edge_attr[rel_to_replace] == replacement_tokens).all():
-            data.edge_attr[rel_to_replace] = replacement_tokens
-            unchanged = False
-            data.adv_affected_nodes = data.edge_index[:, rel_to_replace]
+    global rel_replacements
+    for rel_to_replace in range(len(data.edge_attr)):
+        if (data.edge_attr[rel_to_replace] < 0).all():
+            continue
+        if random.random() >= replacement_prob:
+            continue
+        unchanged = True
+        while unchanged:
+            rel_replacement = rel_replacements[rel_ctr % len(rel_replacements)]
+            rel_ctr += 1
+            if rel_ctr == SZ:
+                rel_replacements = np.random.choice(rel_distr["words"], size=SZ, p=rel_distr["probs"])
+            replacement_tokens = txt_enc([rel_replacement])[0]
+            if not (data.edge_attr[rel_to_replace] == replacement_tokens).all():
+                data.edge_attr[rel_to_replace] = replacement_tokens
+                unchanged = False
+                data.adv_affected_nodes = data.edge_index[:, rel_to_replace]
     return data
 
 def transfer_attributes_batched(batch):
     return batch_transform(transfer_attributes, batch)
 
-def make_sample_relation_batched(txt_enc):
+def make_sample_relation_batched(txt_enc, replacement_prob=1.0):
     def sample_relation_batched(batch):
-        return batch_transform(sample_relation, batch, txt_enc)
+        return batch_transform(sample_relation, batch, txt_enc, replacement_prob)
     return sample_relation_batched
 
 def batch_transform(fn, batch, *args):
