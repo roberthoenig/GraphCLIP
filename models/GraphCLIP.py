@@ -453,7 +453,7 @@ class GraphCLIP():
         train_dloader = DataLoader(train_set, batch_size=self.config["train_args"]["batch_size"], shuffle=True)
         val_dloader = DataLoader(val_set, batch_size=self.config["train_args"]["batch_size"], shuffle=False)
         # Optimizer
-        optimizer = torch.optim.Adam(model.parameters(), lr=self.config["train_args"]["learning_rate"])
+        optimizer = torch.optim.AdamW(model.parameters(), lr=self.config["train_args"]["learning_rate"])
         # Adversarial transform
         adv_transform = self.config["train_args"].get("adv_transform", None)
         if adv_transform == "transfer_attributes":
