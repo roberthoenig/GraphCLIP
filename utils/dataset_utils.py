@@ -110,13 +110,14 @@ rel_ctr = 0
 def sample_relation(data, txt_enc, replacement_prob):
     global rel_ctr
     global rel_replacements
+    adv_affected_nodes = []
     for rel_to_replace in range(len(data.edge_attr)):
         if (data.edge_attr[rel_to_replace] < 0).all():
             continue
         if random.random() >= replacement_prob:
             continue
-        unchanged = True
-        while unchanged:
+        changed = False
+        while not changed:
             rel_replacement = rel_replacements[rel_ctr % len(rel_replacements)]
             rel_ctr += 1
             if rel_ctr == SZ:
@@ -124,8 +125,9 @@ def sample_relation(data, txt_enc, replacement_prob):
             replacement_tokens = txt_enc([rel_replacement])[0]
             if not (data.edge_attr[rel_to_replace] == replacement_tokens).all():
                 data.edge_attr[rel_to_replace] = replacement_tokens
-                unchanged = False
-                data.adv_affected_nodes = data.edge_index[:, rel_to_replace]
+                changed = True
+                adv_affected_nodes += data.edge_index[:, rel_to_replace].tolist()
+    data.adv_affected_nodes = torch.tensor(adv_affected_nodes)
     return data
 
 def transfer_attributes_batched(batch):

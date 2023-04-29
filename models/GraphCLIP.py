@@ -479,7 +479,11 @@ class GraphCLIP():
                     adv_data = adv_transform(data.clone())
                     adv_data = adv_data.to(self.config["device"])
                     data = data.to(self.config["device"])
-                    y_adv, dropout_mask = model(adv_data, exclude_from_dropout=adv_data.adv_affected_nodes, return_dropout_mask=True)
+                    if self.config['train_args']['adv_transform_args']['exclude_from_dropout']:
+                        exclude_from_dropout = adv_data.adv_affected_nodes
+                    else:
+                        exclude_from_dropout = None
+                    y_adv, dropout_mask = model(adv_data, exclude_from_dropout=exclude_from_dropout, return_dropout_mask=True)
                     y_pred = model(data, dropout_mask=dropout_mask)
                     loss = contrastive_adv_loss(y_pred, y_adv, data.y, model.logit_scale)
                 else:
