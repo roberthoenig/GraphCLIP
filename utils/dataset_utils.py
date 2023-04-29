@@ -110,24 +110,17 @@ rel_ctr = 0
 def sample_relation(data, txt_enc, replacement_prob):
     global rel_ctr
     global rel_replacements
-    adv_affected_nodes = []
-    for rel_to_replace in range(len(data.edge_attr)):
-        if (data.edge_attr[rel_to_replace] < 0).all():
-            continue
-        if random.random() >= replacement_prob:
-            continue
-        changed = False
-        while not changed:
-            rel_replacement = rel_replacements[rel_ctr % len(rel_replacements)]
-            rel_ctr += 1
-            if rel_ctr == SZ:
-                rel_replacements = np.random.choice(rel_distr["words"], size=SZ, p=rel_distr["probs"])
-            replacement_tokens = txt_enc([rel_replacement])[0]
-            if not (data.edge_attr[rel_to_replace] == replacement_tokens).all():
-                data.edge_attr[rel_to_replace] = replacement_tokens
-                changed = True
-                adv_affected_nodes += data.edge_index[:, rel_to_replace].tolist()
-    data.adv_affected_nodes = torch.tensor(adv_affected_nodes)
+    replace_mask = torch.rand(len(data.edge_attr)) <= replacement_prob
+    replace_mask[(data.edge_attr < 0).all(dim=1)] = False
+    n_replacements = replace_mask.int().sum()
+    if rel_ctr + n_replacements >= SZ:
+        rel_replacements = np.random.choice(rel_distr["words"], size=SZ, p=rel_distr["probs"])
+        rel_ctr = 0
+    replacements = rel_replacements[rel_ctr:rel_ctr+n_replacements]
+    rel_ctr += n_replacements
+    replacement_tokens = txt_enc(replacements)
+    data.edge_attr[replace_mask] = replacement_tokens
+    data.adv_affected_nodes = data.edge_index[:, replace_mask].flatten()
     return data
 
 def transfer_attributes_batched(batch):
