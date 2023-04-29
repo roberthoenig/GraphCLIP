@@ -479,7 +479,7 @@ class GraphCLIP():
                     adv_data = adv_transform(data.clone())
                     adv_data = adv_data.to(self.config["device"])
                     data = data.to(self.config["device"])
-                    if self.config['train_args']['adv_transform_args']['exclude_from_dropout']:
+                    if self.config['train_args']['exclude_adv_affected_nodes_from_dropout']:
                         exclude_from_dropout = adv_data.adv_affected_nodes
                     else:
                         exclude_from_dropout = None

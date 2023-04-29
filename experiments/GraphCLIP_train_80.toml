@@ -26,9 +26,9 @@ train_val_split = "mscoco"
 epochs_per_checkpoint = 0.41
 load_checkpoint_path = ""
 adv_transform = "sample_relation"
+exclude_adv_affected_nodes_from_dropout = false
 [train_args.adv_transform_args]
 replacement_prob = 1.0
-exclude_from_dropout = false
 
 [dataset_args]
 root = "datasets/visual_genome"
