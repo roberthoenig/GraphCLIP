@@ -40,6 +40,8 @@ def binary_adv_crossentropy_loss(y_pred, y_adv, y_gt, logit_scale):
     logits_adv = logit_scale * (y_adv * y_gt).sum(dim=1)
     logits = torch.stack([logits_pred, logits_adv], dim=1)
     target = torch.zeros(len(y_pred), dtype=torch.int64)
+    if y_pred.is_cuda:
+        target = target.to(y_pred.get_device())
     loss = cross_entropy(input=logits, target=target)
     return loss
 

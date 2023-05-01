@@ -130,6 +130,14 @@ class VisualGenome(InMemoryDataset):
             transform_fn = lambda x: x
         else:
             raise Exception(f"Unknown transform {transform}.")
+        if pre_transform == "add_master_node_with_bidirectional_edges":
+            pre_transform_fn = add_master_node_with_bidirectional_edges
+        elif pre_transform == "add_master_node_with_incoming_edges":
+            pre_transform_fn = add_master_node_with_incoming_edges
+        elif pre_transform is None:
+            pre_transform_fn = lambda x: x
+        else:
+            raise Exception(f"Unknown tpre-ransform {pre_transform}.")
         tokenizer = open_clip.get_tokenizer(model_name=self.enc_cfg["model_name"])
         def clip_embedding_txt_enc(txts):
            with torch.no_grad():
@@ -140,7 +148,7 @@ class VisualGenome(InMemoryDataset):
                 return out  
         self.clip_embedding_txt_enc = clip_embedding_txt_enc
         self.one_sample_per_edge = one_sample_per_edge
-        super().__init__(root, transform_fn, pre_transform, pre_filter)
+        super().__init__(root, transform_fn, pre_transform_fn, pre_filter)
         self.data, self.slices = torch.load(self.processed_paths[0])
 
     @property

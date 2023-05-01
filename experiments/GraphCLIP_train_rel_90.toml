@@ -34,7 +34,7 @@ replacement_prob = 1.0
 root = "datasets/visual_genome"
 one_sample_per_edge = true
 n_samples = "all"
-transform = "add_master_node_with_bidirectional_edges"
+pre_transform = "add_master_node_with_bidirectional_edges"
 use_long_rel_enc = false
 [dataset_args.enc_cfg]
 model_name = "ViT-g-14"
