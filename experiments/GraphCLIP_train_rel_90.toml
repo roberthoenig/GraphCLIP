@@ -1,0 +1,48 @@
+model = "GraphCLIP"
+dataset = "VisualGenome"
+seed = 123456
+device = "cuda:0"
+type = "train"
+
+[model_args]
+architecture = "GNN12"
+[model_args.arch_args]
+in_dim = 2048
+out_dim = 1024
+edge_dim = 2048
+middle_dim = 512
+edge_projected_dim = 256
+p_dropout = 0.0
+model_name = "ViT-g-14"
+pretrained = "laion2b_s12b_b42k"
+freeze_embedding = true
+embedding_init = "CLIP"
+
+[train_args]
+epochs = 100
+batch_size = 128
+learning_rate = 0.0001
+train_val_split = "mscoco"
+epochs_per_checkpoint = 0.41
+load_checkpoint_path = ""
+adv_transform = "sample_relation"
+exclude_adv_affected_nodes_from_dropout = false
+loss = "binary_adv_crossentropy_loss"
+[train_args.adv_transform_args]
+replacement_prob = 1.0
+[dataset_args]
+root = "datasets/visual_genome"
+one_sample_per_edge = true
+n_samples = "all"
+transform = "add_master_node_with_bidirectional_edges"
+use_long_rel_enc = false
+[dataset_args.enc_cfg]
+model_name = "ViT-g-14"
+pretrained = "laion2b_s12b_b42k"
+use_clip_latents = false
+device = "cuda:0"
+
+[dataset_filter_args]
+filters = ["remove_edgeless_graphs"]
+[valset_filter_args]
+filters = ["remove_visualgenome_duplicates"]

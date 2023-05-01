@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from torch_geometric.nn import GCNConv, global_mean_pool, GATv2Conv
 from torch_geometric.loader import DataLoader
 from torch_geometric.utils import dropout_node
-from utils.train_utils import contrastive_adv_loss, contrastive_loss
+from utils.train_utils import binary_adv_crossentropy_loss, contrastive_adv_loss, contrastive_loss
 from utils.model_utils import dropout_node_keep_master_nodes, global_master_pool
 import logging
 import numpy as np
@@ -470,6 +470,15 @@ class GraphCLIP():
         # Training
         pbar_epochs = tqdm(range(self.config["train_args"]["epochs"]), position=0)
         smallest_val_loss = np.inf
+        loss_fn_str = self.config["train_args"].get("loss", "contrastive_loss")
+        if loss_fn_str == "contrastive_loss":
+            loss_fn = contrastive_loss
+        elif loss_fn_str == "contrastive_adv_loss":
+            loss_fn = contrastive_adv_loss
+        elif loss_fn_str == "binary_adv_crossentropy_loss":
+            loss_fn = binary_adv_crossentropy_loss
+        else:
+            raise Exception(f"Unknown loss function {loss_fn_str}.")
         for epoch in pbar_epochs:
             # Train
             model.train()
@@ -488,10 +497,10 @@ class GraphCLIP():
                         exclude_from_dropout = None
                     y_adv, dropout_mask = model(adv_data, exclude_from_dropout=exclude_from_dropout, return_dropout_mask=True)
                     y_pred = model(data, dropout_mask=dropout_mask)
-                    loss = contrastive_adv_loss(y_pred, y_adv, data.y, model.logit_scale)
+                    loss = loss_fn(y_pred, y_adv, data.y, model.logit_scale)
                 else:
                     data = data.to(self.config["device"])
-                    loss = contrastive_loss(model(data), data.y, model.logit_scale)
+                    loss = loss_fn(model(data), data.y, model.logit_scale)
 
                 loss.backward()
                 optimizer.step()
@@ -505,8 +514,16 @@ class GraphCLIP():
             pbar_val = tqdm(val_dloader, position=1, leave=False)
             for data in pbar_val:
                 with torch.no_grad():
-                    data = data.to(self.config["device"])
-                    loss = contrastive_loss(model(data), data.y, model.logit_scale)
+                    if adv_transform is not None:
+                        adv_data = adv_transform(data.clone())
+                        adv_data = adv_data.to(self.config["device"])
+                        data = data.to(self.config["device"])
+                        y_adv, dropout_mask = model(adv_data, return_dropout_mask=True)
+                        y_pred = model(data, dropout_mask=dropout_mask)
+                        loss = loss_fn(y_pred, y_adv, data.y, model.logit_scale)
+                    else:
+                        data = data.to(self.config["device"])
+                        loss = loss_fn(model(data), data.y, model.logit_scale)
                     val_losses.append(loss.item())
                 mov_avg_val_loss = 0.9 * mov_avg_val_loss + 0.1 * loss.item()
                 pbar_train.set_postfix({'moving average val_loss': mov_avg_val_loss})

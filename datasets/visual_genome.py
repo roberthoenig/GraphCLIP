@@ -73,8 +73,51 @@ def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, metadata, coco_val_
     )
     return data
 
+
+# Embeds text with CLIP
+def dict_to_pyg_graphs(d, img_enc, txt_enc, image_id_to_path, metadata, coco_val_ids, use_long_rel_enc):
+    # y: [1, num_img_features]
+    y = img_enc(image_id_to_path[d['image_id']])
+    id_to_idx = {}
+    # x: [num_nodes, num_txt_features]
+    x = txt_enc([obj['names'][0] for obj in d['objects']])
+    for idx, obj in enumerate(d['objects']):
+        id_to_idx[obj['object_id']] = idx
+    # edge_index: [2, num_edges]
+    edge_index = torch.zeros((2, len(d['relationships'])), dtype=torch.int64)
+    for ctr, rel in enumerate(d['relationships']):
+        edge_index[:, ctr] = torch.tensor([id_to_idx[rel['subject_id']], id_to_idx[rel['object_id']]])
+    coco_id = metadata['coco_id'] if metadata['coco_id'] is not None else -1
+    image_id = d['image_id']
+    in_coco_val = coco_id in coco_val_ids
+    datas = []
+    rel_txts = []
+    for rel in d['relationships']:
+        if use_long_rel_enc:
+            subj_txt = d['objects'][id_to_idx[rel['subject_id']]]['names'][0]
+            obj_txt = d['objects'][id_to_idx[rel['object_id']]]['names'][0]
+            rel_txt = rel['predicate']
+            compound_txt = " ".join([subj_txt, rel_txt, obj_txt])
+        else:
+            compound_txt = rel['predicate']
+        rel_txts.append(compound_txt)
+    edge_attr = txt_enc(rel_txts)
+    for idx, rel in enumerate(d['relationships']):
+        data = Data(x=x[edge_index[:, idx]],
+            edge_attr=edge_attr[idx].reshape(1,-1),
+            edge_index=torch.tensor([0,1]).reshape(2,1),
+            y=y,
+            obj_nodes=torch.tensor([0, 1]),
+            attr_nodes=torch.tensor([], dtype=torch.int64),
+            coco_id=torch.tensor([coco_id], dtype=torch.long),
+            image_id=torch.tensor([image_id], dtype=torch.long),
+            in_coco_val=torch.tensor([in_coco_val], dtype=torch.bool)
+        )
+        datas.append(data)
+    return datas
+
 class VisualGenome(InMemoryDataset):
-    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None, enc_cfg=None, n_samples="all", scene_graphs_filename="scene_graphs.json", use_long_rel_enc=None):
+    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None, enc_cfg=None, n_samples="all", scene_graphs_filename="scene_graphs.json", use_long_rel_enc=None, one_sample_per_edge = False):
         self.enc_cfg = enc_cfg
         self.n_samples = n_samples
         self.scene_graphs_filename = scene_graphs_filename
@@ -96,6 +139,7 @@ class VisualGenome(InMemoryDataset):
                 out = tokens.cpu()
                 return out  
         self.clip_embedding_txt_enc = clip_embedding_txt_enc
+        self.one_sample_per_edge = one_sample_per_edge
         super().__init__(root, transform_fn, pre_transform, pre_filter)
         self.data, self.slices = torch.load(self.processed_paths[0])
 
@@ -105,7 +149,7 @@ class VisualGenome(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return [f"data_{self.scene_graphs_filename}_{self.n_samples}_{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_use_clip_latents={self.enc_cfg['use_clip_latents']}_use_long_rel_enc={self.use_long_rel_enc}_coco_annotated_with_attributes_6.pt"]
+        return [f"data_{self.scene_graphs_filename}_{self.n_samples}_{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_use_clip_latents={self.enc_cfg['use_clip_latents']}_use_long_rel_enc={self.use_long_rel_enc}_one_sample_per_edge={self.one_sample_per_edge}_coco_annotated_with_attributes_6.pt"]
 
     def download(self):
         # Download to `self.raw_dir`.
@@ -168,8 +212,12 @@ class VisualGenome(InMemoryDataset):
                 return model.encode_text(tokenizer(txts).to(self.enc_cfg["device"])).cpu()
         txt_enc_fn = clip_latent_txt_enc_fn if self.enc_cfg["use_clip_latents"] else self.clip_embedding_txt_enc
         logging.info("Producing PyG graphs...")
-        data_list = [dict_to_pyg_graph(d, img_enc_fn, txt_enc_fn, image_id_to_path, metadata, coco_val_ids, self.use_long_rel_enc)
-                     for d, metadata in tqdm(zip(scene_graphs_dict, image_data_dict))]
+        if self.one_sample_per_edge:
+            data_list = sum([dict_to_pyg_graphs(d, img_enc_fn, txt_enc_fn, image_id_to_path, metadata, coco_val_ids, self.use_long_rel_enc)
+                        for d, metadata in tqdm(zip(scene_graphs_dict, image_data_dict))], [])
+        else:
+            data_list = [dict_to_pyg_graph(d, img_enc_fn, txt_enc_fn, image_id_to_path, metadata, coco_val_ids, self.use_long_rel_enc)
+                        for d, metadata in tqdm(zip(scene_graphs_dict, image_data_dict))]
 
         if self.pre_filter is not None:
             data_list = [data for data in data_list if self.pre_filter(data)]

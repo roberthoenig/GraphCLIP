@@ -35,6 +35,14 @@ def contrastive_adv_loss(y_pred, y_adv, y_gt, logit_scale):
     loss = (loss_1 + loss_2)/2
     return loss
 
+def binary_adv_crossentropy_loss(y_pred, y_adv, y_gt, logit_scale):
+    logits_pred = logit_scale * (y_pred * y_gt).sum(dim=1)
+    logits_adv = logit_scale * (y_adv * y_gt).sum(dim=1)
+    logits = torch.stack([logits_pred, logits_adv], dim=1)
+    target = torch.zeros(len(y_pred), dtype=torch.int64)
+    loss = cross_entropy(input=logits, target=target)
+    return loss
+
 def adversarial_relation_loss(y_pred_reliable, y_pred_adversarial, y_gt, logit_scale):
     # y_pred_reliable: (batch_size, embedding_size)
     # y_pred_adversarial: (batch_size, embedding_size)
