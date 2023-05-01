@@ -43,6 +43,6 @@ use_clip_latents = false
 device = "cuda:0"
 
 [dataset_filter_args]
-filters = ["remove_edgeless_graphs"]
+filters = []
 [valset_filter_args]
-filters = ["remove_visualgenome_duplicates"]
+filters = []
