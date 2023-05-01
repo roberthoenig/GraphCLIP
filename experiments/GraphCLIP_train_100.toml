@@ -27,6 +27,7 @@ epochs_per_checkpoint = 0.41
 load_checkpoint_path = ""
 adv_transform = "sample_relation"
 exclude_adv_affected_nodes_from_dropout = false
+loss = "contrastive_adv_loss"
 [train_args.adv_transform_args]
 replacement_prob = 1.0
 
