@@ -213,8 +213,10 @@ class VisualGenome(InMemoryDataset):
         txt_enc_fn = clip_latent_txt_enc_fn if self.enc_cfg["use_clip_latents"] else self.clip_embedding_txt_enc
         logging.info("Producing PyG graphs...")
         if self.one_sample_per_edge:
-            data_list = sum([dict_to_pyg_graphs(d, img_enc_fn, txt_enc_fn, image_id_to_path, metadata, coco_val_ids, self.use_long_rel_enc)
-                        for d, metadata in tqdm(zip(scene_graphs_dict, image_data_dict))], [])
+            data_lists = [dict_to_pyg_graphs(d, img_enc_fn, txt_enc_fn, image_id_to_path, metadata, coco_val_ids, self.use_long_rel_enc)
+                        for d, metadata in tqdm(zip(scene_graphs_dict, image_data_dict))]
+            logging.info("Listing PyG graphs...")
+            data_list = [d for dd in data_lists for d in dd]
         else:
             data_list = [dict_to_pyg_graph(d, img_enc_fn, txt_enc_fn, image_id_to_path, metadata, coco_val_ids, self.use_long_rel_enc)
                         for d, metadata in tqdm(zip(scene_graphs_dict, image_data_dict))]
