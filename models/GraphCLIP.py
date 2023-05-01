@@ -365,7 +365,10 @@ class GNN12(torch.nn.Module):
             new_shape[0] += 4
             weights = torch.randn(new_shape)
         elif embedding_init == 'CLIP':
-            new_embs = torch.sin(torch.arange(4, dtype=torch.float).reshape(-1,1) * torch.arange(emb_dim, dtype=torch.float).reshape(1,-1))
+            avg_norm = model.token_embedding.weight.norm(dim=1).mean()
+            new_embs = torch.sin(torch.arange(1, 5, dtype=torch.float).reshape(-1,1) * torch.arange(emb_dim, dtype=torch.float).reshape(1,-1))
+            new_embs_norm = new_embs.norm(dim=1).mean()
+            new_embs = new_embs * (avg_norm/new_embs_norm)
             weights = torch.cat([model.token_embedding.weight, new_embs])
         else:
             raise Exception(f"Unknown embedding_init {embedding_init}.")
