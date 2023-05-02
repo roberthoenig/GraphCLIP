@@ -17,7 +17,7 @@ num_epochs = 10
 clip_model_type = 'ViT-B/32'
 clip_pretrained_dataset = 'laion400m_e32'
 shallow = True
-debug_mode = False # turn this on such that a tiny dataset is loaded such that you can test the code
+debug_mode = True # turn this on such that a tiny dataset is loaded such that you can test the code
 description = f"""
     ViT_RelClassifier with 100 epochs, 200 hidden size, and 64 batch size\n 
     clip model {clip_model_type}, clip pretrained dataset {clip_pretrained_dataset}

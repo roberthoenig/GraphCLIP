@@ -101,6 +101,11 @@ class CustomImageDataset(Dataset):
         return image, bounding_boxes, rel_label, obj1_label, obj2_label, attr_label, rel_mask
 
 
+def filter_out_adversarial_dataset(filtered_graphs, filtered_graphs_path):
+    adv_dataset = get_realistic_graphs_dataset()
+    image_ids = set([d['original_graph'].image_id for d in adv_dataset])
+    filtered_graphs = [g for g in filtered_graphs if g.image_id not in image_ids]
+    return filtered_graphs
 
 
 def get_dataloader( 
@@ -117,6 +122,7 @@ def get_dataloader(
         filtered_graphs = torch.load(filtered_graphs_path + "filtered_graphs_test_small.pt") # much faster to load
     else:
         filtered_graphs = torch.load(filtered_graphs_path + "filtered_graphs.pt")
+    filtered_graphs = filter_out_adversarial_dataset(filtered_graphs, filtered_graphs_path)
     train_size = int(0.8 * len(filtered_graphs))
     filtered_graphs_train, filtered_graphs_val = torch.utils.data.random_split(filtered_graphs, [train_size, len(filtered_graphs) - train_size], generator=torch.Generator().manual_seed(42032))
     print("Done loading filtered graphs.")
