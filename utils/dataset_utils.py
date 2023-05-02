@@ -25,6 +25,14 @@ def make_is_not_visualgenome_duplicate(vg_dupes):
         return data['image_id'].item() == vg_dupes[str(data['coco_id'].item())][0]
     return is_not_visualgenome_duplicate
 
+def make_remove_adv_dataset_samples():
+    with open("datasets/visual_genome/raw/realistic_adversarial_samples.json", "r") as f:
+        samples = json.load(f)
+        ids = [int(id) for id in samples.keys()]
+    def remove_adv_dataset_samples(data):
+        return not (data.image_id.item() in ids)
+    return remove_adv_dataset_samples
+
 def dataset_filter(dataset, filters=[]):
     filter_fns = []
     for filter in filters:
@@ -39,6 +47,8 @@ def dataset_filter(dataset, filters=[]):
             with open("datasets/visual_genome/raw/visualgenome_duplicates.json", "r") as f:
                 vg_dupes = json.load(f)
             filter_fn = make_is_not_visualgenome_duplicate(vg_dupes)
+        elif filter == "remove_adv_dataset_samples":
+            filter_fn = make_remove_adv_dataset_samples()
         elif filter is None:
             filter_fn = lambda x: True
         else:

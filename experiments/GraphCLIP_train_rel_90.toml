@@ -43,6 +43,6 @@ use_clip_latents = false
 device = "cuda:0"
 
 [dataset_filter_args]
-filters = []
+filters = ["remove_adv_dataset_samples"]
 [valset_filter_args]
 filters = []
