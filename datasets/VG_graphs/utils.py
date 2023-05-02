@@ -110,6 +110,7 @@ def get_filtered_attributes():
 
 
 def create_filtered_graphs():
+    raise NotImplementedError('This function is out of date.')
     # you need to download the scene graph data from visual genome, it's not included in dario's folder (and i don't have write access there)
     with open(LOCAL_DATA_PATH+'raw/scene_graphs.json', 'r') as f:
         scene_graphs_dict = json.load(f)

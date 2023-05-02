@@ -42,6 +42,7 @@ class CleanedVisualGenomeDataModule(LightningDataModule):
         self.metadata_path = metadata_path
         self.image_dir = image_dir
         self.debug_mode = testing_only
+        self.data = get_dataloader(self.preprocess_function,self.metadata_path,self.image_dir, testing_only=self.debug_mode)
 
     def prepare_data(self):
         """
@@ -55,7 +56,7 @@ class CleanedVisualGenomeDataModule(LightningDataModule):
         This method is called by lightning twice for `trainer.fit()` and `trainer.test()`, so be careful if you do a random split!
         The `stage` can be used to differentiate whether it's called before trainer.fit()` or `trainer.test()`.
         """
-        self.dataloader_train, self.dataloader_val = get_dataloader(self.preprocess_function,self.metadata_path,self.image_dir, testing_only=self.debug_mode)
+        self.dataloader_train, self.dataloader_val = self.data[0], self.data[1]
 
 
     def train_dataloader(self):

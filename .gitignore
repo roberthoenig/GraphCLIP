@@ -127,3 +127,5 @@ test.py
 scripts/chatgpt/captions.json
 scripts/chatgpt/captions_filtered.json
 scripts/explore_chatgpt_captions.py
+
+experiments/*

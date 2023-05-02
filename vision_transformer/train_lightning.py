@@ -16,13 +16,18 @@ run_logs_dir = "/local/home/jthomm/GraphCLIP/experiments/"
 num_epochs = 10
 clip_model_type = 'ViT-B/32'
 clip_pretrained_dataset = 'laion400m_e32'
+shallow = True
+debug_mode = False # turn this on such that a tiny dataset is loaded such that you can test the code
 description = f"""
     ViT_RelClassifier with 100 epochs, 200 hidden size, and 64 batch size\n 
     clip model {clip_model_type}, clip pretrained dataset {clip_pretrained_dataset}
     the model has three heads: rel, obj_1, obj_2
     the training rates are: ViT: 1e-6, rest: 1e-4
+    Shallow CLassification Heads: {shallow}
+    No Weighted Loss for the Rel Head and the Obj Heads
+    Attribute Loss is enabled and the dataset is implemented with attributes
+    Debug Mode: {debug_mode} (if true, this is only a tiny dataset for debugging purposes)
     """
-debug_mode = True # turn this on such that a tiny dataset is loaded such that you can test the code
 ############################################################################
 
 ### setup CUDA
@@ -43,7 +48,14 @@ os.makedirs(run_folder)
 wandb_logger = WandbLogger(project='ResearchAssistant', entity='jthomm', dir=run_folder, notes=description)
 
 # Create the model
-model = ViT_RelClassifier(100, 200, clip_model_type, clip_pretrained_dataset)
+model = ViT_RelClassifier(
+    100, 
+    200, 
+    100,
+    clip_model_type, 
+    clip_pretrained_dataset,
+    shallow=shallow,
+    )
 image_size = model.ViT.image_size
 print(f"Image size: {image_size}")
 preprocess_function = image_transform(
@@ -62,6 +74,14 @@ data_module = CleanedVisualGenomeDataModule(
         testing_only=debug_mode,
 )
 
+### Weigthed Loss
+print("Attribute occurence probabilities:", data_module.data[0].dataset.attr_occurence_probabilities)
+model.register_occurence_probabilities(
+    None,
+    None,
+    data_module.data[0].dataset.attr_occurence_probabilities,
+    )
+
 ### Model Checkpointing
 checkpoint_callback = pl.callbacks.ModelCheckpoint(
     monitor='val_acc',
@@ -77,10 +97,12 @@ trainer = pl.Trainer(
     max_epochs=num_epochs,
     logger=wandb_logger,
     accelerator="gpu",
-    devices = 2,#'auto',
+    devices = min(2, len(free_devices)),
     # strategy="fsdp",
     callbacks=[checkpoint_callback],
     log_every_n_steps=1,
+    # strategy='ddp_find_unused_parameters_true',
+    strategy="ddp",
 )
 
 # Train the model

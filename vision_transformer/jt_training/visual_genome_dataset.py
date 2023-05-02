@@ -8,6 +8,7 @@ from os.path import dirname, abspath
 d = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(d)
 from datasets.VG_graphs import get_filtered_relationships, get_filtered_objects, get_filtered_attributes, copy_graph, get_realistic_graphs_dataset, plot_graph
+import random
 
 class CustomImageDataset(Dataset):
     def __init__(self, image_dir, id_edge_graph_dict, preprocess_func):
@@ -16,6 +17,31 @@ class CustomImageDataset(Dataset):
         self.preprocess_func = preprocess_func
         self.rel_classes = {rel:i for i,rel in enumerate(get_filtered_relationships())}
         self.obj_classes = {obj:i for i,obj in enumerate(get_filtered_objects())}
+        self.attr_classes = {attr:i for i,attr in enumerate(get_filtered_attributes())}
+        rel_occurence_probabilities = torch.zeros(len(self.rel_classes))
+        obj_occurence_probabilities = torch.zeros(len(self.obj_classes))
+        attr_occurence_probabilities = torch.zeros(len(self.attr_classes))
+        for image_id, edge in self.id_edge_graph_dict.keys():
+            g = self.id_edge_graph_dict[(image_id, edge)]
+            if edge[0] == edge[1]:
+                for attr in g.nodes[edge[0]]['attributes']:
+                    attr_occurence_probabilities[self.attr_classes[attr]] += 1
+                obj_occurence_probabilities[self.obj_classes[g.nodes[edge[0]]['name']]] += 1
+            else:
+                rel_occurence_probabilities[self.rel_classes[g.edges[edge]['predicate']]] += 1
+                obj_occurence_probabilities[self.obj_classes[g.nodes[edge[0]]['name']]] += 1
+                obj_occurence_probabilities[self.obj_classes[g.nodes[edge[1]]['name']]] += 1
+                for attr in g.nodes[edge[0]]['attributes']:
+                    attr_occurence_probabilities[self.attr_classes[attr]] += 1
+                for attr in g.nodes[edge[1]]['attributes']:
+                    attr_occurence_probabilities[self.attr_classes[attr]] += 1
+        self.rel_occurence_probabilities = rel_occurence_probabilities / rel_occurence_probabilities.sum()
+        self.obj_occurence_probabilities = obj_occurence_probabilities / obj_occurence_probabilities.sum()
+        attr_occ_p = attr_occurence_probabilities / attr_occurence_probabilities.sum()
+        self.attr_occurence_probabilities = torch.zeros(len(self.attr_classes),2)
+        self.attr_occurence_probabilities[:,1] = attr_occ_p
+        self.attr_occurence_probabilities[:,0] = 1 - attr_occ_p
+
 
         self.image_ids_edges = list(self.id_edge_graph_dict.keys())
 
@@ -54,12 +80,28 @@ class CustomImageDataset(Dataset):
         ]).view(1,8)
         image = self.preprocess_func(image)
         
-
-        rel_label = torch.tensor(self.rel_classes[g.edges[edge]['predicate']])
+        if edge[0] == edge[1]:
+            # print("case 1")
+            rel_label = torch.tensor(0)
+            rel_mask = torch.tensor(0)
+        else:
+            # print("case 2")
+            rel_label = torch.tensor(self.rel_classes[g.edges[edge]['predicate']])
+            rel_mask = torch.tensor(1)
+        # print("1.", g.nodes[edge[0]]['name'], "2.", self.obj_classes[g.nodes[edge[0]]['name']], "3.", torch.tensor(self.obj_classes[g.nodes[edge[0]]['name']]))
         obj1_label = torch.tensor(self.obj_classes[g.nodes[edge[0]]['name']])
         obj2_label = torch.tensor(self.obj_classes[g.nodes[edge[1]]['name']])
+        # print("obj1_label", obj1_label, "obj2_label", obj2_label, "obj1_label.shape", obj1_label.shape, "obj2_label.shape", obj2_label.shape)
 
-        return image, bounding_boxes, rel_label, obj1_label, obj2_label
+        positive_attr_classes = [self.attr_classes[attr] for attr in g.nodes[edge[0]]['attributes']]
+        attr_label = torch.zeros(len(self.attr_classes))
+        attr_label[positive_attr_classes] = 1
+
+        # print('image', image.shape, 'bounding_boxes', bounding_boxes.shape, 'rel_label', rel_label.shape, 'obj1_label', obj1_label.shape, 'obj2_label', obj2_label.shape, 'attr_label', attr_label.shape, 'rel_mask', rel_mask.shape)
+        return image, bounding_boxes, rel_label, obj1_label, obj2_label, attr_label, rel_mask
+
+
+
 
 def get_dataloader( 
         preprocess_func,
@@ -76,18 +118,36 @@ def get_dataloader(
     else:
         filtered_graphs = torch.load(filtered_graphs_path + "filtered_graphs.pt")
     train_size = int(0.8 * len(filtered_graphs))
-    filtered_graphs_train, filtered_graphs_val = torch.utils.data.random_split(filtered_graphs, [train_size, len(filtered_graphs) - train_size])
+    filtered_graphs_train, filtered_graphs_val = torch.utils.data.random_split(filtered_graphs, [train_size, len(filtered_graphs) - train_size], generator=torch.Generator().manual_seed(42032))
     print("Done loading filtered graphs.")
     id_edge_graph_dict_train = {
         (g.image_id, e
         ): g
         for g in filtered_graphs_train for e in g.edges()
     }
+    id_node_graph_dict_train = {
+        (g.image_id, (n,n)
+        ): g
+        for g in filtered_graphs_train for n in g.nodes() if len(g.nodes[n]['attributes']) > 0 # only use nodes with attributes
+    }
+    # get a random subset of keys and extend the dict with them
+    subset = random.sample(list(id_node_graph_dict_train.keys()), len(id_edge_graph_dict_train)//4) # sample is without replacement
+    for k in subset:
+        id_edge_graph_dict_train[k] = id_node_graph_dict_train[k]
     id_edge_graph_dict_val = {
         (g.image_id, e
         ): g
         for g in filtered_graphs_val for e in g.edges()
     }
+    id_node_graph_dict_val = {
+        (g.image_id, (n,n)
+        ): g
+        for g in filtered_graphs_val for n in g.nodes() if len(g.nodes[n]['attributes']) > 0 # only use nodes with attributes
+    }
+    # get a random subset of keys and extend the dict with them
+    subset = random.sample(list(id_node_graph_dict_val.keys()), len(id_edge_graph_dict_val)//4)
+    for k in subset:
+        id_edge_graph_dict_val[k] = id_node_graph_dict_val[k]
     dataset_train = CustomImageDataset(image_dir, id_edge_graph_dict_train, preprocess_func)
     dataset_val = CustomImageDataset(image_dir, id_edge_graph_dict_val, preprocess_func)
     dataloader_train = DataLoader(dataset_train, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle)
