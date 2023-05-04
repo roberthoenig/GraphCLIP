@@ -1,6 +1,6 @@
 import torch
 from datasets.visual_genome import VisualGenome, VisualGenomeAdversarial
-from models.MyLayer import construct_my_layer
+from models.MyLayer import construct_my_layer, construct_my_layer2
 from models.MyTransformerConv import MyTransformerConv
 from utils.dataset_utils import dataset_filter, make_sample_relation_batched, transfer_attributes_batched, tokens_to_embeddings_batched
 from utils.eval_utils import compute_ranking_metrics_from_features, compute_accuracy_from_adversarial_features
@@ -397,6 +397,66 @@ class GNN12(torch.nn.Module):
             return x, node_mask
         else:
             return x
+        
+# Like GNN12, but MetaConv layer that uses unnormalized features for the attention contribution from edges.
+class GNN13(torch.nn.Module):
+    def __init__(self, in_dim, out_dim, edge_dim, edge_projected_dim, middle_dim, p_dropout, model_name, pretrained, freeze_embedding, embedding_init, zero_edge_attr=False):
+        super().__init__()
+        self.edge_projected_dim = edge_projected_dim
+        self.conv1 = construct_my_layer2(node_in_dim=in_dim, node_out_dim=middle_dim, edge_in_dim=edge_projected_dim)
+        self.conv2 = construct_my_layer2(node_in_dim=middle_dim, node_out_dim=middle_dim, edge_in_dim=edge_projected_dim)
+        self.conv3 = construct_my_layer2(node_in_dim=middle_dim, node_out_dim=out_dim, edge_in_dim=edge_projected_dim)
+        self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
+        self.p_dropout = p_dropout
+        self.project_edges = torch.nn.Linear(edge_dim, edge_projected_dim)
+        self.project_edges2 = torch.nn.Linear(edge_dim, edge_projected_dim)
+        self.zero_edge_attr = zero_edge_attr
+        model, _, _ = open_clip.create_model_and_transforms(model_name=model_name, pretrained=pretrained, device="cpu")
+        emb_dim = model.token_embedding.embedding_dim
+        if embedding_init == 'random':
+            new_shape = list(model.token_embedding.weight.shape)
+            new_shape[0] += 4
+            weights = torch.randn(new_shape)
+        elif embedding_init == 'CLIP':
+            avg_norm = model.token_embedding.weight.norm(dim=1).mean()
+            new_embs = torch.sin(torch.arange(1, 5, dtype=torch.float).reshape(-1,1) * torch.arange(emb_dim, dtype=torch.float).reshape(1,-1))
+            new_embs2 = new_embs
+            new_embs_norm = new_embs.norm(dim=1).mean()
+            new_embs = new_embs * (avg_norm/new_embs_norm)
+            weights = torch.cat([model.token_embedding.weight, new_embs])
+            weights2 = torch.cat([model.token_embedding.weight, new_embs2])
+        else:
+            raise Exception(f"Unknown embedding_init {embedding_init}.")
+        self.embedding = torch.nn.Embedding.from_pretrained(weights, freeze=freeze_embedding)
+        self.embedding2 = torch.nn.Embedding.from_pretrained(weights2, freeze=freeze_embedding)
+
+    def forward(self, data, exclude_from_dropout=None, return_dropout_mask=False, dropout_mask=None):
+        data_clone = data.clone()
+        data = tokens_to_embeddings_batched(data, self.embedding)
+        x, edge_index, edge_attr, batch = data.x, data.edge_index, data.edge_attr, data.batch
+        edge_attr2 = tokens_to_embeddings_batched(data_clone, self.embedding2).edge_attr
+        edge_index, edge_mask, node_mask = dropout_node_keep_master_nodes(edge_index=edge_index,
+                                                                  batch=batch, training=self.training,
+                                                                  p=self.p_dropout, exclude_from_dropout=exclude_from_dropout,
+                                                                  dropout_mask=dropout_mask)
+        if self.zero_edge_attr:
+            edge_attr[True] = 0
+        edge_attr = edge_attr[edge_mask]
+        edge_attr = self.project_edges(edge_attr)
+        edge_attr2 = edge_attr2[edge_mask]
+        edge_attr2 = self.project_edges2(edge_attr2)
+        x, edge_attr, _ = self.conv1(x, edge_index, torch.cat([edge_attr, edge_attr2], dim=1))
+        x = F.relu(x)
+        edge_attr = F.relu(edge_attr[:, :self.edge_projected_dim])
+        x, edge_attr, _ = self.conv2(x, edge_index, torch.cat([edge_attr, edge_attr2], dim=1))
+        x = F.relu(x)
+        edge_attr = F.relu(edge_attr[:, :self.edge_projected_dim])
+        x, edge_attr, _ = self.conv3(x, edge_index, torch.cat([edge_attr, edge_attr2], dim=1))
+        x = global_master_pool(x, batch)
+        if return_dropout_mask:
+            return x, node_mask
+        else:
+            return x
 
 class GraphCLIP():
     def __init__(self, config):
@@ -432,6 +492,8 @@ class GraphCLIP():
                 model = GNN11(**self.config["model_args"]["arch_args"])
             elif arch == "GNN12":
                 model = GNN12(**self.config["model_args"]["arch_args"])
+            elif arch == "GNN13":
+                model = GNN13(**self.config["model_args"]["arch_args"])
             else:
                 raise Exception(f"Unknown architecture {arch}.")
         model.to(self.config["device"])
