@@ -129,3 +129,4 @@ scripts/chatgpt/captions_filtered.json
 scripts/explore_chatgpt_captions.py
 
 experiments/*
+!experiments/*.toml
