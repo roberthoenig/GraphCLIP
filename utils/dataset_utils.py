@@ -115,6 +115,7 @@ with open("datasets/visual_genome/raw/relation_distribution.json", "r") as f:
     rel_distr = json.load(f)
 SZ = 1_000_000
 rel_replacements = np.random.choice(rel_distr["words"], size=SZ, p=rel_distr["probs"])
+rel_replacement_idxs = np.random.choice(np.arange(len(rel_distr["words"])), size=SZ, p=np.array(rel_distr["probs"]))
 rel_ctr = 0
 
 def sample_relation(data, txt_enc, replacement_prob):
@@ -139,6 +140,24 @@ def transfer_attributes_batched(batch):
 def make_sample_relation_batched(txt_enc, replacement_prob=1.0):
     def sample_relation_batched(batch):
         return batch_transform(sample_relation, batch, txt_enc, replacement_prob)
+    return sample_relation_batched
+
+def make_sample_all_relations_batched(txt_enc):
+    enc_rel = txt_enc(rel_distr["words"])
+    def sample_relation_batched(batch):
+        global rel_ctr
+        global rel_replacement_idxs
+        replace_mask = torch.ones(len(batch.edge_attr)).bool()
+        replace_mask[(batch.edge_attr < 0).all(dim=1)] = False
+        n_replacements = replace_mask.int().sum()
+        if rel_ctr + n_replacements >= SZ:
+            rel_replacement_idxs = np.random.choice(np.arange(len(rel_distr["words"])), size=SZ, p=np.array(rel_distr["probs"]))
+            rel_ctr = 0
+        replacements_tokens = enc_rel[rel_replacement_idxs[rel_ctr:rel_ctr+n_replacements]]
+        rel_ctr += n_replacements
+        batch.edge_attr[replace_mask] = replacements_tokens     
+        batch.adv_affected_nodes = batch.edge_index[:, replace_mask].flatten()
+        return batch
     return sample_relation_batched
 
 def batch_transform(fn, batch, *args):

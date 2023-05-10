@@ -2,7 +2,7 @@ import torch
 from datasets.visual_genome import VisualGenome, VisualGenomeAdversarial
 from models.MyLayer import construct_my_layer, construct_my_layer2
 from models.MyTransformerConv import MyTransformerConv
-from utils.dataset_utils import dataset_filter, make_sample_relation_batched, transfer_attributes_batched, tokens_to_embeddings_batched
+from utils.dataset_utils import dataset_filter, make_sample_all_relations_batched, make_sample_relation_batched, transfer_attributes_batched, tokens_to_embeddings_batched
 from utils.eval_utils import compute_ranking_metrics_from_features, compute_accuracy_from_adversarial_features
 from tqdm import tqdm
 import torch
@@ -291,6 +291,8 @@ class GNN10(torch.nn.Module):
                                                                   batch=batch, training=self.training,
                                                                   p=self.p_dropout, exclude_from_dropout=exclude_from_dropout,
                                                                   dropout_mask=dropout_mask)
+        if self.zero_edge_attr:
+            edge_attr[True] = 0
         edge_attr = edge_attr[edge_mask]
         edge_attr = self.project_edges(edge_attr)
         x = self.conv1(x, edge_index, edge_attr)
@@ -526,6 +528,8 @@ class GraphCLIP():
             adv_transform = transfer_attributes_batched
         if adv_transform == "sample_relation":
             adv_transform = make_sample_relation_batched(txt_enc, **self.config['train_args'].get('adv_transform_args', dict()))
+        if adv_transform == "replace_all_edges":
+            adv_transform = make_sample_all_relations_batched(txt_enc, **self.config['train_args'].get('adv_transform_args', dict()))
         elif adv_transform is not None:
             logging.info(f"Unknown adversarial transform {adv_transform}.")
 
