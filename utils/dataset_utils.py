@@ -28,7 +28,7 @@ def make_is_not_visualgenome_duplicate(vg_dupes):
 def make_remove_adv_dataset_samples():
     with open("datasets/visual_genome/raw/realistic_adversarial_samples.json", "r") as f:
         samples = json.load(f)
-        ids = [int(id) for id in samples.keys()]
+        ids = [int(s['image_id']) for s in samples]
     def remove_adv_dataset_samples(data):
         return not (data.image_id.item() in ids)
     return remove_adv_dataset_samples
