@@ -13,11 +13,12 @@ image_dir = "/local/home/jthomm/GraphCLIP/datasets/visual_genome/raw/VG/"
 metadata_path = "/local/home/jthomm/GraphCLIP/datasets/visual_genome/processed/"
 run_logs_dir = "/local/home/jthomm/GraphCLIP/experiments/"
 
-num_epochs = 10
-clip_model_type = 'ViT-B/32'
-clip_pretrained_dataset = 'laion400m_e32'
+num_epochs = 15
+clip_model_type =  'ViT-L-14' # 'ViT-L-14' #'ViT-g-14' #'ViT-H-14' #'ViT-B/32'
+clip_pretrained_dataset = 'laion2b_s32b_b82k' # 'laion2b_s32b_b82k' # 'laion2b_s34b_b88k'  # 'laion2b_s32b_b79k' # 'laion400m_e32'
 shallow = True
 debug_mode = True # turn this on such that a tiny dataset is loaded such that you can test the code
+input_mode = 'text_embeddings' # 'bounding_boxes'
 description = f"""
     ViT_RelClassifier with 100 epochs, 200 hidden size, and 64 batch size\n 
     clip model {clip_model_type}, clip pretrained dataset {clip_pretrained_dataset}
@@ -27,6 +28,10 @@ description = f"""
     No Weighted Loss for the Rel Head and the Obj Heads
     Attribute Loss is enabled and the dataset is implemented with attributes
     Debug Mode: {debug_mode} (if true, this is only a tiny dataset for debugging purposes)
+    Batch size: 64
+    The adversarial dataset is removed from training and validation
+    The data input mode is: {input_mode}
+    Attribute loss is ignored for 0 attributes and the weighting is fixed.
     """
 ############################################################################
 
@@ -45,7 +50,7 @@ run_name = f"vision_transformer_{run_id}"
 run_folder = f"{date_folder}/{run_name}"
 os.makedirs(run_folder)
 
-wandb_logger = WandbLogger(project='ResearchAssistant', entity='jthomm', dir=run_folder, notes=description)
+wandb_logger = WandbLogger(project='ResearchAssistant', entity='jthomm', save_dir=run_folder, notes=description)
 
 # Create the model
 model = ViT_RelClassifier(
@@ -55,6 +60,7 @@ model = ViT_RelClassifier(
     clip_model_type, 
     clip_pretrained_dataset,
     shallow=shallow,
+    mode=input_mode,
     )
 image_size = model.ViT.image_size
 print(f"Image size: {image_size}")
@@ -72,14 +78,16 @@ data_module = CleanedVisualGenomeDataModule(
         metadata_path,
         image_dir,
         testing_only=debug_mode,
+        batch_size=32,
+        mode=input_mode,
 )
 
 ### Weigthed Loss
-print("Attribute occurence probabilities:", data_module.data[0].dataset.attr_occurence_probabilities)
 model.register_occurence_probabilities(
     None,
     None,
     data_module.data[0].dataset.attr_occurence_probabilities,
+    logger=wandb_logger,
     )
 
 ### Model Checkpointing
@@ -96,13 +104,13 @@ checkpoint_callback = pl.callbacks.ModelCheckpoint(
 trainer = pl.Trainer(
     max_epochs=num_epochs,
     logger=wandb_logger,
-    accelerator="gpu",
-    devices = min(2, len(free_devices)),
-    # strategy="fsdp",
+    accelerator="gpu" if torch.cuda.is_available() else 'cpu',
+    devices = min(1, len(free_devices)) if torch.cuda.is_available() else 1,
     callbacks=[checkpoint_callback],
     log_every_n_steps=1,
     # strategy='ddp_find_unused_parameters_true',
-    strategy="ddp",
+    # strategy="ddp", # if this is enabled, you ahve to set ddp_find_unused_parameters to true or modify the model, because sometimes a classificaiton head is not used, all masked out
+    accumulate_grad_batches=2,
 )
 
 # Train the model

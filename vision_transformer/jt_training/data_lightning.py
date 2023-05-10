@@ -32,6 +32,8 @@ class CleanedVisualGenomeDataModule(LightningDataModule):
         metadata_path,
         image_dir,
         testing_only=False,
+        batch_size=64,
+        mode='bounding_boxes'
     ):
         super().__init__()
 
@@ -42,7 +44,7 @@ class CleanedVisualGenomeDataModule(LightningDataModule):
         self.metadata_path = metadata_path
         self.image_dir = image_dir
         self.debug_mode = testing_only
-        self.data = get_dataloader(self.preprocess_function,self.metadata_path,self.image_dir, testing_only=self.debug_mode)
+        self.data = get_dataloader(self.preprocess_function,self.metadata_path,self.image_dir, mode=mode, testing_only=self.debug_mode, batch_size=batch_size)
 
     def prepare_data(self):
         """

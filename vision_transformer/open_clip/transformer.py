@@ -51,7 +51,7 @@ class PatchDropout(nn.Module):
 
     def __init__(self, prob, exclude_first_token=True):
         super().__init__()
-        assert 0 <= prob < 1.
+        # assert 0 <= prob < 1.  jthomm: commented out
         self.prob = prob
         self.exclude_first_token = exclude_first_token  # exclude CLS token
 
@@ -100,7 +100,7 @@ class Attention(nn.Module):
         super().__init__()
         self.scaled_cosine = scaled_cosine
         self.scale_heads = scale_heads
-        assert dim % num_heads == 0, 'dim should be divisible by num_heads'
+        # assert dim % num_heads == 0, 'dim should be divisible by num_heads' jthomm: commented out
         self.num_heads = num_heads
         self.head_dim = dim // num_heads
         self.scale = self.head_dim ** -0.5
