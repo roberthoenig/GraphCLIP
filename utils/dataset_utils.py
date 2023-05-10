@@ -164,7 +164,7 @@ def process_adversarial_dataset(in_dir, in_fname):
         adv_data = json.load(f)
     data_gt = []
     data_adv = []
-    for _,v in sorted(adv_data.items()):
+    for v in adv_data:
         for target in ["gt", "adv"]:
             image_id = v["image_id"]
             object_id = v["changed_edge_obj"]
