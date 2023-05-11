@@ -626,7 +626,7 @@ class GraphCLIP():
             # Validate
             model.eval()
             val_losses_mean = []
-            for val_dloader in val_dloaders:
+            for val_dloader, loss_fn, adv_transform in zip(val_dloaders, loss_fns, adv_transforms):
                 val_losses = []
                 mov_avg_val_loss = 0
                 pbar_val = tqdm(val_dloader, position=1, leave=False)
