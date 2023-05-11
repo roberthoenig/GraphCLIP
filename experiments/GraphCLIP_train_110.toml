@@ -1,0 +1,71 @@
+model = "GraphCLIP"
+seed = 123456
+device = "cuda:0"
+type = "train"
+epochs = 100
+steps_per_epoch = 700
+learning_rate = 0.0001
+load_checkpoint_path = ""
+
+[model_args]
+architecture = "GNN12"
+[model_args.arch_args]
+in_dim = 2048
+out_dim = 1024
+edge_dim = 2048
+middle_dim = 512
+edge_projected_dim = 256
+p_dropout = 0.0
+model_name = "ViT-g-14"
+pretrained = "laion2b_s12b_b42k"
+freeze_embedding = true
+embedding_init = "CLIP"
+
+# Adversarial relations graphs
+[[multitasks]]
+[multitasks.train_args]
+batch_size = 128
+train_val_split = "mscoco"
+epochs_per_checkpoint = 0.25
+adv_transform = "replace_all_edges"
+exclude_adv_affected_nodes_from_dropout = false
+loss = "binary_adv_crossentropy_loss"
+[multitasks.dataset_args]
+dataset = "VisualGenome"
+root = "datasets/visual_genome"
+one_sample_per_edge = true
+n_samples = "all"
+pre_transform = "add_master_node_with_bidirectional_edges"
+use_long_rel_enc = false
+[multitasks.dataset_args.enc_cfg]
+model_name = "ViT-g-14"
+pretrained = "laion2b_s12b_b42k"
+use_clip_latents = false
+device = "cuda:0"
+[multitasks.dataset_filter_args]
+filters = ["remove_adv_dataset_samples"]
+[multitasks.valset_filter_args]
+filters = []
+
+# Big graphs
+[[multitasks]]
+[multitasks.train_args]
+batch_size = 128
+train_val_split = "mscoco"
+epochs_per_checkpoint = 0.37
+loss = "contrastive_loss"
+[multitasks.dataset_args]
+dataset = "VisualGenome"
+root = "datasets/visual_genome"
+n_samples = "all"
+transform = "add_master_node_with_bidirectional_edges"
+use_long_rel_enc = false
+[multitasks.dataset_args.enc_cfg]
+model_name = "ViT-g-14"
+pretrained = "laion2b_s12b_b42k"
+use_clip_latents = false
+device = "cuda:0"
+[multitasks.dataset_filter_args]
+filters = ["remove_edgeless_graphs"]
+[multitasks.valset_filter_args]
+filters = ["remove_visualgenome_duplicates"]

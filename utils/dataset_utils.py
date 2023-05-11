@@ -9,6 +9,8 @@ import random
 import json
 import os.path as osp
 import numpy as np
+import torch
+from torch_geometric.data import DataLoader
 
 def unzip_file(zip_path, target_dir):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
@@ -219,3 +221,35 @@ def process_adversarial_dataset(in_dir, in_fname):
 
     with open(osp.join(in_dir, "scene_graphs_adv.json"), 'w') as f:
         json.dump(data_adv, f)
+
+class MultiDataLoader:
+    def __init__(self, datasets, batch_sizes, num_iterations):
+        self.datasets = datasets
+        self.batch_sizes = batch_sizes
+        self.num_iterations = num_iterations
+
+        # Create a DataLoader for each dataset
+        self.loaders = [DataLoader(dataset, batch_size=batch_size, shuffle=True)            
+            for dataset, batch_size in zip(self.datasets, self.batch_sizes)]
+        # Initialize iterator for each loader
+        self.iterators = [iter(loader) for loader in self.loaders]
+        self.iter_count = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.iter_count >= self.num_iterations:
+            self.iter_count = 0
+            raise StopIteration
+        self.iter_count += 1
+
+        batches = []
+        for idx, iterator in enumerate(self.iterators):
+            try:
+                batches.append(next(iterator))
+            except StopIteration:
+                # Reshuffle and create a new iterator
+                self.iterators[idx] = iter(self.loaders[idx])
+                batches.append(next(self.iterators[idx]))
+        return batches

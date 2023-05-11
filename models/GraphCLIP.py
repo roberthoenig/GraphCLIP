@@ -2,7 +2,7 @@ import torch
 from datasets.visual_genome import VisualGenome, VisualGenomeAdversarial
 from models.MyLayer import construct_my_layer, construct_my_layer2
 from models.MyTransformerConv import MyTransformerConv
-from utils.dataset_utils import dataset_filter, make_sample_all_relations_batched, make_sample_relation_batched, transfer_attributes_batched, tokens_to_embeddings_batched
+from utils.dataset_utils import MultiDataLoader, dataset_filter, make_sample_all_relations_batched, make_sample_relation_batched, transfer_attributes_batched, tokens_to_embeddings_batched
 from utils.eval_utils import compute_ranking_metrics_from_features, compute_accuracy_from_adversarial_features
 from tqdm import tqdm
 import torch
@@ -466,8 +466,10 @@ class GraphCLIP():
         
     def train(self):
         # Model
-        if "load_checkpoint_path" in self.config["train_args"] and not self.config["train_args"]["load_checkpoint_path"] == "":
+        if "load_checkpoint_path" in self.config.get("train_args", []) and not self.config["train_args"]["load_checkpoint_path"] == "":
             model = torch.load(self.config["train_args"]["load_checkpoint_path"])
+        elif "load_checkpoint_path" in self.config and not self.config["load_checkpoint_path"] == "":
+            model = torch.load(self.config["load_checkpoint_path"])
         else:
             arch = self.config["model_args"]["architecture"]
             if arch == "GNN":
@@ -503,115 +505,154 @@ class GraphCLIP():
         model_parameters = filter(lambda p: p.requires_grad, model.parameters())
         model_sz = sum([np.prod(p.size()) for p in model_parameters])
         logging.info(f"Model size: {model_sz} parameters.")
-        # Dataset
-        if self.config["dataset"] == "VisualGenome":
-            dataset = VisualGenome(**self.config["dataset_args"])
+        
+        def config_to_trainset_valset_batchsize_advtransform(cfg):
+            # Dataset
+            if cfg["dataset_args"]["dataset"] == "VisualGenome":
+                dataset = VisualGenome(**cfg["dataset_args"])
+            else:
+                raise Exception(f"Unkown dataset {cfg['dataset_args']['dataset']}.")
+            txt_enc = dataset.clip_embedding_txt_enc
+            dataset = dataset_filter(dataset, **cfg["dataset_filter_args"])
+            train_val_split = cfg["train_args"]["train_val_split"]
+            if train_val_split == "mscoco":
+                train_set = dataset_filter(dataset, filters=["remove_mscoco_val"])
+                val_set = dataset_filter(dataset, filters=["keep_mscoco_val"])
+            else:
+                train_ratio = train_val_split
+                train_set, val_set = torch.utils.data.random_split(dataset, [train_ratio, 1-train_ratio])
+            val_set = dataset_filter(val_set, **cfg["valset_filter_args"])
+             # Adversarial transform
+            adv_transform = cfg["train_args"].get("adv_transform", None)
+            if adv_transform == "transfer_attributes":
+                adv_transform = transfer_attributes_batched
+            if adv_transform == "sample_relation":
+                adv_transform = make_sample_relation_batched(txt_enc, **cfg['train_args'].get('adv_transform_args', dict()))
+            if adv_transform == "replace_all_edges":
+                adv_transform = make_sample_all_relations_batched(txt_enc, **cfg['train_args'].get('adv_transform_args', dict()))
+            elif adv_transform is not None:
+                logging.info(f"Unknown adversarial transform {adv_transform}.")
+            # Adversarial transform dropout exclusion
+            excl_from_dropout = cfg['train_args'].get('exclude_adv_affected_nodes_from_dropout', None)
+            # Loss
+            loss_fn_str = cfg["train_args"].get("loss", "contrastive_loss")
+            if loss_fn_str == "contrastive_loss":
+                loss_fn = contrastive_loss
+            elif loss_fn_str == "contrastive_adv_loss":
+                loss_fn = contrastive_adv_loss
+            elif loss_fn_str == "binary_adv_crossentropy_loss":
+                loss_fn = binary_adv_crossentropy_loss
+            else:
+                raise Exception(f"Unknown loss function {loss_fn_str}.")
+            # Checkpointing
+            cp = cfg["train_args"]["epochs_per_checkpoint"]
+            return train_set, val_set, cfg["train_args"]["batch_size"], adv_transform, excl_from_dropout, loss_fn, cp
+        # Streamline multitask and single task config files.
+        if "multitasks" in self.config:
+            learning_rate = self.config["learning_rate"]
+            train_sets = []
+            batch_sizes = []
+            adv_transforms = []
+            val_dloaders = []
+            loss_fns = []
+            cps = []
+            excl_from_dropouts = []
+            for cfg in self.config["multitasks"]:
+                print("cfg", cfg)
+                train_set, val_set, batch_size, adv_transform, excl_from_dropout, loss_fn, cp = config_to_trainset_valset_batchsize_advtransform(cfg)
+                train_sets.append(train_set)
+                val_dloader = DataLoader(val_set, batch_size=batch_size, shuffle=False)
+                val_dloaders.append(val_dloader)
+                batch_sizes.append(batch_size)
+                adv_transforms.append(adv_transform)
+                loss_fns.append(loss_fn)
+                cps.append(cp)
+                excl_from_dropouts.append(excl_from_dropout)
+            train_dloader = MultiDataLoader(train_sets, batch_sizes=batch_sizes, num_iterations=self.config["steps_per_epoch"])
+            n_epochs = self.config["epochs"]
         else:
-            raise Exception(f"Unkown dataset {self.config['dataset']}.")
-        txt_enc = dataset.clip_embedding_txt_enc
-        dataset = dataset_filter(dataset, **self.config["dataset_filter_args"])
-        train_val_split = self.config["train_args"]["train_val_split"]
-        if train_val_split == "mscoco":
-            train_set = dataset_filter(dataset, filters=["remove_mscoco_val"])
-            val_set = dataset_filter(dataset, filters=["keep_mscoco_val"])
-        else:
-            train_ratio = train_val_split
-            train_set, val_set = torch.utils.data.random_split(dataset, [train_ratio, 1-train_ratio])
-        val_set = dataset_filter(val_set, **self.config["valset_filter_args"])
-        train_dloader = DataLoader(train_set, batch_size=self.config["train_args"]["batch_size"], shuffle=True)
-        val_dloader = DataLoader(val_set, batch_size=self.config["train_args"]["batch_size"], shuffle=False)
+            learning_rate = self.config["train_args"]["learning_rate"]
+            train_set, val_set, batch_size, adv_transform, excl_from_dropout, loss_fn, cp = config_to_trainset_valset_batchsize_advtransform(self.config)
+            train_dloader = MultiDataLoader([train_set], batch_sizes=[batch_size], num_iterations=len(train_set)//batch_size)
+            val_dloader = DataLoader(val_set, batch_size=batch_size, shuffle=False)
+            val_dloaders = [val_dloader]
+            adv_transforms = [adv_transform]
+            excl_from_dropouts = [excl_from_dropout]
+            loss_fns = [loss_fn]
+            n_epochs = self.config["train_args"]["epochs"]
+            cps = [cp]
+            
         # Optimizer
-        optimizer = torch.optim.AdamW(model.parameters(), lr=self.config["train_args"]["learning_rate"])
-        # Adversarial transform
-        adv_transform = self.config["train_args"].get("adv_transform", None)
-        if adv_transform == "transfer_attributes":
-            adv_transform = transfer_attributes_batched
-        if adv_transform == "sample_relation":
-            adv_transform = make_sample_relation_batched(txt_enc, **self.config['train_args'].get('adv_transform_args', dict()))
-        if adv_transform == "replace_all_edges":
-            adv_transform = make_sample_all_relations_batched(txt_enc, **self.config['train_args'].get('adv_transform_args', dict()))
-        elif adv_transform is not None:
-            logging.info(f"Unknown adversarial transform {adv_transform}.")
-
+        optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
         # Training
-        pbar_epochs = tqdm(range(self.config["train_args"]["epochs"]), position=0)
-        smallest_val_loss = np.inf
-        loss_fn_str = self.config["train_args"].get("loss", "contrastive_loss")
-        if loss_fn_str == "contrastive_loss":
-            loss_fn = contrastive_loss
-        elif loss_fn_str == "contrastive_adv_loss":
-            loss_fn = contrastive_adv_loss
-        elif loss_fn_str == "binary_adv_crossentropy_loss":
-            loss_fn = binary_adv_crossentropy_loss
-        else:
-            raise Exception(f"Unknown loss function {loss_fn_str}.")
+        def loss_from_data(loss_fn, data, adv_transform, excl_from_dropout):
+            if adv_transform is not None:
+                adv_data = adv_transform(data.clone())
+                adv_data = adv_data.to(self.config["device"])
+                data = data.to(self.config["device"])
+                if excl_from_dropout:
+                    exclude_from_dropout = adv_data.adv_affected_nodes
+                else:
+                    exclude_from_dropout = None
+                y_adv, dropout_mask = model(adv_data, exclude_from_dropout=exclude_from_dropout, return_dropout_mask=True)
+                y_pred = model(data, dropout_mask=dropout_mask)
+                loss = loss_fn(y_pred, y_adv, data.y, model.logit_scale)
+            else:
+                data = data.to(self.config["device"])
+                loss = loss_fn(model(data), data.y, model.logit_scale)
+            return loss
+
+        pbar_epochs = tqdm(range(n_epochs), position=0)
+        smallest_val_losses = np.inf
         for epoch in pbar_epochs:
             # Train
             model.train()
             train_losses = []
-            mov_avg_train_loss = 0
+            mov_avg_train_losses = 0
             pbar_train = tqdm(train_dloader, position=1, leave=False)
-            for data in pbar_train:
+            for datas in pbar_train:
                 optimizer.zero_grad()
-                if adv_transform is not None:
-                    adv_data = adv_transform(data.clone())
-                    adv_data = adv_data.to(self.config["device"])
-                    data = data.to(self.config["device"])
-                    if self.config['train_args']['exclude_adv_affected_nodes_from_dropout']:
-                        exclude_from_dropout = adv_data.adv_affected_nodes
-                    else:
-                        exclude_from_dropout = None
-                    y_adv, dropout_mask = model(adv_data, exclude_from_dropout=exclude_from_dropout, return_dropout_mask=True)
-                    y_pred = model(data, dropout_mask=dropout_mask)
-                    loss = loss_fn(y_pred, y_adv, data.y, model.logit_scale)
-                else:
-                    data = data.to(self.config["device"])
-                    loss = loss_fn(model(data), data.y, model.logit_scale)
-
-                loss.backward()
+                losses = []
+                for loss_fn, data, adv_transform, excl_from_dropout in zip(loss_fns, datas, adv_transforms, excl_from_dropouts):
+                    loss = loss_from_data(loss_fn, data, adv_transform, excl_from_dropout)
+                    losses.append(loss)
+                combined_loss = sum(losses)
+                combined_loss.backward()
                 optimizer.step()
-                train_losses.append(loss.item())
-                mov_avg_train_loss = 0.9 * mov_avg_train_loss + 0.1 * loss.item()
-                pbar_train.set_postfix({'moving average train_loss': mov_avg_train_loss})
+                train_losses.append([l.item() for l in losses])
+                mov_avg_train_losses = 0.9 * mov_avg_train_losses + 0.1 * torch.tensor(train_losses[-1])
+                pbar_train.set_postfix({'moving average train_loss': mov_avg_train_losses.tolist()})
+            train_losses_mean = np.array(train_losses).mean(axis=0)
             # Validate
             model.eval()
-            val_losses = []
-            mov_avg_val_loss = 0
-            pbar_val = tqdm(val_dloader, position=1, leave=False)
-            for data in pbar_val:
-                with torch.no_grad():
-                    if adv_transform is not None:
-                        adv_data = adv_transform(data.clone())
-                        adv_data = adv_data.to(self.config["device"])
-                        data = data.to(self.config["device"])
-                        y_adv, dropout_mask = model(adv_data, return_dropout_mask=True)
-                        y_pred = model(data, dropout_mask=dropout_mask)
-                        loss = loss_fn(y_pred, y_adv, data.y, model.logit_scale)
-                    else:
-                        data = data.to(self.config["device"])
-                        loss = loss_fn(model(data), data.y, model.logit_scale)
-                    val_losses.append(loss.item())
-                mov_avg_val_loss = 0.9 * mov_avg_val_loss + 0.1 * loss.item()
-                pbar_train.set_postfix({'moving average val_loss': mov_avg_val_loss})
+            val_losses_mean = []
+            for val_dloader in val_dloaders:
+                val_losses = []
+                mov_avg_val_loss = 0
+                pbar_val = tqdm(val_dloader, position=1, leave=False)
+                for data in pbar_val:
+                    with torch.no_grad():
+                        loss = loss_from_data(loss_fn, data, adv_transform, False)
+                        val_losses.append(loss.item())
+                    mov_avg_val_loss = 0.9 * mov_avg_val_loss + 0.1 * loss.item()
+                    pbar_train.set_postfix({'moving average val_loss': mov_avg_val_loss})
+                val_losses_mean.append(np.mean(val_losses))
             # Log
-            train_loss = np.mean(train_losses)
-            val_loss = np.mean(val_losses)
-            pbar_epochs.set_postfix({'train_loss': train_loss, 'val_loss': val_loss})
-            logging.info(f"Epoch {epoch}, average train_loss: {train_loss}, average val_loss: {val_loss}")
+            def loss2str(losses):
+                return np.array2string(np.array(losses), precision=3)
+            pbar_epochs.set_postfix({'train_losses': loss2str(train_losses_mean), 'val_loss': loss2str(val_losses_mean)})
+            logging.info(f"Epoch {epoch}, average train_loss: {loss2str(train_losses_mean)}, average val_loss: {loss2str(val_losses_mean)}")
             # Save Checkpoint
-            cp = self.config["train_args"]["epochs_per_checkpoint"]
-            if isinstance(cp, float):
-                if val_loss < min(smallest_val_loss, cp):
-                    do_cp = True
-                    smallest_val_loss = val_loss
-                else:
-                    do_cp = False
+            cps = np.array(cps)
+            if np.any(np.array(val_losses_mean) < np.minimum(smallest_val_losses, cps)):
+                do_cp = True
+                smallest_val_losses = np.minimum(val_losses_mean, smallest_val_losses)
             else:
-                do_cp = (epoch+1) % self.config["train_args"]["epochs_per_checkpoint"] == 0
+                do_cp = False
             if do_cp:
                 logging.info(f"Saving checkpoint...")
                 model.cpu()
-                torch.save(model, osp.join(self.config["experiment_dir"], f"checkpoint_{epoch+1}_{val_loss:.2f}.pt"))
+                torch.save(model, osp.join(self.config["experiment_dir"], f"checkpoint_{epoch+1}_{loss2str(val_losses_mean)}.pt"))
                 model.to(self.config["device"])
     
     def eval(self):

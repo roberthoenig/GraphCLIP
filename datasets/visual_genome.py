@@ -117,7 +117,7 @@ def dict_to_pyg_graphs(d, img_enc, txt_enc, image_id_to_path, metadata, coco_val
     return datas
 
 class VisualGenome(InMemoryDataset):
-    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None, enc_cfg=None, n_samples="all", scene_graphs_filename="scene_graphs.json", use_long_rel_enc=None, one_sample_per_edge = False):
+    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None, enc_cfg=None, n_samples="all", scene_graphs_filename="scene_graphs.json", use_long_rel_enc=None, one_sample_per_edge = False, dataset=None):
         self.enc_cfg = enc_cfg
         self.n_samples = n_samples
         self.scene_graphs_filename = scene_graphs_filename
