@@ -546,7 +546,9 @@ class GraphCLIP():
                 raise Exception(f"Unknown loss function {loss_fn_str}.")
             # Checkpointing
             cp = cfg["train_args"]["epochs_per_checkpoint"]
-            return train_set, val_set, cfg["train_args"]["batch_size"], adv_transform, excl_from_dropout, loss_fn, cp
+            # Weight
+            weight = cfg["train_args"].get("weight", 1.0)
+            return train_set, val_set, cfg["train_args"]["batch_size"], adv_transform, excl_from_dropout, loss_fn, cp, weight
         # Streamline multitask and single task config files.
         if "multitasks" in self.config:
             learning_rate = self.config["learning_rate"]
@@ -557,9 +559,9 @@ class GraphCLIP():
             loss_fns = []
             cps = []
             excl_from_dropouts = []
+            weights = []
             for cfg in self.config["multitasks"]:
-                print("cfg", cfg)
-                train_set, val_set, batch_size, adv_transform, excl_from_dropout, loss_fn, cp = config_to_trainset_valset_batchsize_advtransform(cfg)
+                train_set, val_set, batch_size, adv_transform, excl_from_dropout, loss_fn, cp, weight = config_to_trainset_valset_batchsize_advtransform(cfg)
                 train_sets.append(train_set)
                 val_dloader = DataLoader(val_set, batch_size=batch_size, shuffle=False)
                 val_dloaders.append(val_dloader)
@@ -567,6 +569,7 @@ class GraphCLIP():
                 adv_transforms.append(adv_transform)
                 loss_fns.append(loss_fn)
                 cps.append(cp)
+                weights.append(weight)
                 excl_from_dropouts.append(excl_from_dropout)
             train_dloader = MultiDataLoader(train_sets, batch_sizes=batch_sizes, num_iterations=self.config["steps_per_epoch"])
             n_epochs = self.config["epochs"]
@@ -581,6 +584,7 @@ class GraphCLIP():
             loss_fns = [loss_fn]
             n_epochs = self.config["train_args"]["epochs"]
             cps = [cp]
+            weights = [1.0]
             
         # Optimizer
         optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
@@ -613,16 +617,18 @@ class GraphCLIP():
             for datas in pbar_train:
                 optimizer.zero_grad()
                 losses = []
-                for loss_fn, data, adv_transform, excl_from_dropout in zip(loss_fns, datas, adv_transforms, excl_from_dropouts):
+                total_loss = 0
+                for loss_fn, data, adv_transform, excl_from_dropout, weight in zip(loss_fns, datas, adv_transforms, excl_from_dropouts, weights):
                     loss = loss_from_data(loss_fn, data, adv_transform, excl_from_dropout)
+                    total_loss += weight * loss
                     losses.append(loss)
-                combined_loss = sum(losses)
-                combined_loss.backward()
+                total_loss.backward()
                 optimizer.step()
                 train_losses.append([l.item() for l in losses])
                 mov_avg_train_losses = 0.9 * mov_avg_train_losses + 0.1 * torch.tensor(train_losses[-1])
                 pbar_train.set_postfix({'moving average train_loss': mov_avg_train_losses.tolist()})
             train_losses_mean = np.array(train_losses).mean(axis=0)
+            losses = []
             # Validate
             model.eval()
             val_losses_mean = []
