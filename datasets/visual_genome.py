@@ -256,6 +256,20 @@ class VisualGenomeAdversarial(Dataset):
             "adv": self.dataset_adv[idx],
         }
 
+class VisualGenomeAdversarialAttr(Dataset):
+    def __init__(self, *args, **kwargs):
+        self.dataset_gt = VisualGenome(*args, **kwargs,  scene_graphs_filename="realistic_adversarial_attributes_gt_accepted.json")
+        self.dataset_adv = VisualGenome(*args, **kwargs, scene_graphs_filename="realistic_adversarial_attributes_adv_accepted.json")
+
+    def __len__(self):
+        return len(self.dataset_gt)
+
+    def __getitem__(self, idx):
+        return {
+            "gt": self.dataset_gt[idx],
+            "adv": self.dataset_adv[idx],
+        }
+
 class VisualGenomeAdversarialText(Dataset):
     def __init__(self, root):
         self.captions_gt = []

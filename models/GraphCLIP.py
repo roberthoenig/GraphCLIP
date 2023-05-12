@@ -1,5 +1,5 @@
 import torch
-from datasets.visual_genome import VisualGenome, VisualGenomeAdversarial
+from datasets.visual_genome import VisualGenome, VisualGenomeAdversarial, VisualGenomeAdversarialAttr
 from models.MyLayer import construct_my_layer, construct_my_layer2
 from models.MyTransformerConv import MyTransformerConv
 from utils.dataset_utils import MultiDataLoader, dataset_filter, make_sample_all_relations_batched, make_sample_relation_batched, transfer_attributes_batched, tokens_to_embeddings_batched
@@ -711,6 +711,14 @@ class GraphCLIP():
         # Dataset
         if self.config["dataset"] == "VisualGenomeAdversarial":
             dataset = VisualGenomeAdversarial(**self.config["dataset_args"])
+            dataset = dataset_filter(dataset, **self.config["dataset_filter_args"])
+            train_val_split = self.config["eval_args"]["train_val_split"]
+            train_ratio = train_val_split
+            _, val_set = torch.utils.data.random_split(dataset, [train_ratio, 1-train_ratio])
+            val_set = dataset_filter(val_set, **self.config["valset_filter_args"])
+            val_dloader = DataLoader(val_set, batch_size=1, shuffle=False)
+        elif self.config["dataset"] == "VisualGenomeAdversarialAttr":
+            dataset = VisualGenomeAdversarialAttr(**self.config["dataset_args"])
             dataset = dataset_filter(dataset, **self.config["dataset_filter_args"])
             train_val_split = self.config["eval_args"]["train_val_split"]
             train_ratio = train_val_split
