@@ -7,7 +7,7 @@ type = "eval_adversarial"
 [dataset_args]
 root = "datasets/visual_genome"
 n_samples = "all"
-pre_transform = "add_master_node_with_bidirectional_edges"
+transform = "add_master_node_with_bidirectional_edges"
 use_long_rel_enc = false
 [dataset_args.enc_cfg]
 model_name = "ViT-g-14"
