@@ -459,6 +459,57 @@ class GNN13(torch.nn.Module):
             return x, node_mask
         else:
             return x
+        
+        
+# Like GNN12, but moves p_dropout to forward pass.
+class GNN14(torch.nn.Module):
+    def __init__(self, in_dim, out_dim, edge_dim, edge_projected_dim, middle_dim, model_name, pretrained, freeze_embedding, embedding_init, zero_edge_attr=False):
+        super().__init__()
+        self.conv1 = construct_my_layer(node_in_dim=in_dim, node_out_dim=middle_dim, edge_in_dim=edge_projected_dim)
+        self.conv2 = construct_my_layer(node_in_dim=middle_dim, node_out_dim=middle_dim, edge_in_dim=edge_projected_dim)
+        self.conv3 = construct_my_layer(node_in_dim=middle_dim, node_out_dim=out_dim, edge_in_dim=edge_projected_dim)
+        self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
+        self.project_edges = torch.nn.Linear(edge_dim, edge_projected_dim)
+        self.zero_edge_attr = zero_edge_attr
+        model, _, _ = open_clip.create_model_and_transforms(model_name=model_name, pretrained=pretrained, device="cpu")
+        emb_dim = model.token_embedding.embedding_dim
+        if embedding_init == 'random':
+            new_shape = list(model.token_embedding.weight.shape)
+            new_shape[0] += 4
+            weights = torch.randn(new_shape)
+        elif embedding_init == 'CLIP':
+            avg_norm = model.token_embedding.weight.norm(dim=1).mean()
+            new_embs = torch.sin(torch.arange(1, 5, dtype=torch.float).reshape(-1,1) * torch.arange(emb_dim, dtype=torch.float).reshape(1,-1))
+            new_embs_norm = new_embs.norm(dim=1).mean()
+            new_embs = new_embs * (avg_norm/new_embs_norm)
+            weights = torch.cat([model.token_embedding.weight, new_embs])
+        else:
+            raise Exception(f"Unknown embedding_init {embedding_init}.")
+        self.embedding = torch.nn.Embedding.from_pretrained(weights, freeze=freeze_embedding)
+
+    def forward(self, data, exclude_from_dropout=None, return_dropout_mask=False, dropout_mask=None, p_dropout=None):
+        data = tokens_to_embeddings_batched(data, self.embedding)
+        x, edge_index, edge_attr, batch = data.x, data.edge_index, data.edge_attr, data.batch
+        edge_index, edge_mask, node_mask = dropout_node_keep_master_nodes(edge_index=edge_index,
+                                                                  batch=batch, training=self.training,
+                                                                  p=p_dropout, exclude_from_dropout=exclude_from_dropout,
+                                                                  dropout_mask=dropout_mask)
+        if self.zero_edge_attr:
+            edge_attr[True] = 0
+        edge_attr = edge_attr[edge_mask]
+        edge_attr = self.project_edges(edge_attr)
+        x, edge_attr, _ = self.conv1(x, edge_index, edge_attr)
+        x = F.relu(x)
+        edge_attr = F.relu(edge_attr)
+        x, edge_attr, _ = self.conv2(x, edge_index, edge_attr)
+        x = F.relu(x)
+        edge_attr = F.relu(edge_attr)
+        x, edge_attr, _ = self.conv3(x, edge_index, edge_attr)
+        x = global_master_pool(x, batch)
+        if return_dropout_mask:
+            return x, node_mask
+        else:
+            return x
 
 class GraphCLIP():
     def __init__(self, config):
@@ -498,6 +549,8 @@ class GraphCLIP():
                 model = GNN12(**self.config["model_args"]["arch_args"])
             elif arch == "GNN13":
                 model = GNN13(**self.config["model_args"]["arch_args"])
+            elif arch == "GNN14":
+                model = GNN14(**self.config["model_args"]["arch_args"])
             else:
                 raise Exception(f"Unknown architecture {arch}.")
         model.to(self.config["device"])
@@ -548,7 +601,9 @@ class GraphCLIP():
             cp = cfg["train_args"]["epochs_per_checkpoint"]
             # Weight
             weight = cfg["train_args"].get("weight", 1.0)
-            return train_set, val_set, cfg["train_args"]["batch_size"], adv_transform, excl_from_dropout, loss_fn, cp, weight
+            # Dropout
+            p_dropout = cfg["train_args"].get("p_dropout", None)
+            return train_set, val_set, cfg["train_args"]["batch_size"], adv_transform, excl_from_dropout, loss_fn, cp, weight, p_dropout
         # Streamline multitask and single task config files.
         if "multitasks" in self.config:
             learning_rate = self.config["learning_rate"]
@@ -560,8 +615,9 @@ class GraphCLIP():
             cps = []
             excl_from_dropouts = []
             weights = []
+            p_dropouts = []
             for cfg in self.config["multitasks"]:
-                train_set, val_set, batch_size, adv_transform, excl_from_dropout, loss_fn, cp, weight = config_to_trainset_valset_batchsize_advtransform(cfg)
+                train_set, val_set, batch_size, adv_transform, excl_from_dropout, loss_fn, cp, weight, p_dropout = config_to_trainset_valset_batchsize_advtransform(cfg)
                 train_sets.append(train_set)
                 val_dloader = DataLoader(val_set, batch_size=batch_size, shuffle=False)
                 val_dloaders.append(val_dloader)
@@ -570,6 +626,7 @@ class GraphCLIP():
                 loss_fns.append(loss_fn)
                 cps.append(cp)
                 weights.append(weight)
+                p_dropouts.append(p_dropout)
                 excl_from_dropouts.append(excl_from_dropout)
             train_dloader = MultiDataLoader(train_sets, batch_sizes=batch_sizes, num_iterations=self.config["steps_per_epoch"])
             n_epochs = self.config["epochs"]
@@ -589,7 +646,7 @@ class GraphCLIP():
         # Optimizer
         optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
         # Training
-        def loss_from_data(loss_fn, data, adv_transform, excl_from_dropout):
+        def loss_from_data(loss_fn, data, adv_transform, excl_from_dropout, p_dropout):
             if adv_transform is not None:
                 adv_data = adv_transform(data.clone())
                 adv_data = adv_data.to(self.config["device"])
@@ -598,12 +655,12 @@ class GraphCLIP():
                     exclude_from_dropout = adv_data.adv_affected_nodes
                 else:
                     exclude_from_dropout = None
-                y_adv, dropout_mask = model(adv_data, exclude_from_dropout=exclude_from_dropout, return_dropout_mask=True)
-                y_pred = model(data, dropout_mask=dropout_mask)
+                y_adv, dropout_mask = model(adv_data, exclude_from_dropout=exclude_from_dropout, return_dropout_mask=True, p_dropout=p_dropout)
+                y_pred = model(data, dropout_mask=dropout_mask, p_dropout=p_dropout)
                 loss = loss_fn(y_pred, y_adv, data.y, model.logit_scale)
             else:
                 data = data.to(self.config["device"])
-                loss = loss_fn(model(data), data.y, model.logit_scale)
+                loss = loss_fn(model(data), data.y, model.logit_scale, p_dropout=p_dropout)
             return loss
 
         pbar_epochs = tqdm(range(n_epochs), position=0)
@@ -618,8 +675,8 @@ class GraphCLIP():
                 optimizer.zero_grad()
                 losses = []
                 total_loss = 0
-                for loss_fn, data, adv_transform, excl_from_dropout, weight in zip(loss_fns, datas, adv_transforms, excl_from_dropouts, weights):
-                    loss = loss_from_data(loss_fn, data, adv_transform, excl_from_dropout)
+                for loss_fn, data, adv_transform, excl_from_dropout, weight, p_dropout in zip(loss_fns, datas, adv_transforms, excl_from_dropouts, weights, p_dropouts):
+                    loss = loss_from_data(loss_fn, data, adv_transform, excl_from_dropout, p_dropout)
                     total_loss += weight * loss
                     losses.append(loss)
                 total_loss.backward()
@@ -638,7 +695,7 @@ class GraphCLIP():
                 pbar_val = tqdm(val_dloader, position=1, leave=False)
                 for data in pbar_val:
                     with torch.no_grad():
-                        loss = loss_from_data(loss_fn, data, adv_transform, False)
+                        loss = loss_from_data(loss_fn, data, adv_transform, False, 0.0)
                         val_losses.append(loss.item())
                     mov_avg_val_loss = 0.9 * mov_avg_val_loss + 0.1 * loss.item()
                     pbar_train.set_postfix({'moving average val_loss': mov_avg_val_loss})
