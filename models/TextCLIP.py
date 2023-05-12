@@ -2,7 +2,7 @@ import torch
 from PIL import Image
 import open_clip
 from datasets.mscoco import MSCOCO
-from datasets.visual_genome import VisualGenomeAdversarialText
+from datasets.visual_genome import VisualGenomeAdversarialAttrText, VisualGenomeAdversarialText
 from utils.eval_utils import compute_accuracy_from_adversarial_features, compute_ranking_metrics_from_features
 from tqdm import tqdm
 import logging
@@ -59,6 +59,8 @@ class TextCLIP():
         # Dataset
         if self.config["dataset"] == "VisualGenomeAdversarialText":
             dataset = VisualGenomeAdversarialText(**self.config["dataset_args"])
+        elif self.config["dataset"] == "VisualGenomeAdversarialAttrText":
+            dataset = VisualGenomeAdversarialAttrText(**self.config["dataset_args"])
         else:
             raise Exception(f"Unkown dataset {self.config['dataset']}.")
         

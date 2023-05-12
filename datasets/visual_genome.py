@@ -276,3 +276,38 @@ class VisualGenomeAdversarialText(Dataset):
                 self.captions_gt.append(caption_gt)
                 self.captions_adv.append(caption_adv)
                 self.img_paths.append(img_path)
+
+class VisualGenomeAdversarialAttrText(Dataset):
+    def __init__(self, root):
+        self.captions_gt = []
+        self.captions_adv = []
+        self.img_paths = []
+        with open('datasets/visual_genome/raw/realistic_adversarial_attributes_gt_accepted.json', 'r') as f:
+            data = json.load(f)
+        img_id_to_path = dict()
+        for dir in [Path(root)/"raw"/"VG_100K", Path(root)/"raw"/"VG_100K_2"]:
+            pathlist = dir.glob('*.jpg')
+            for path in pathlist:
+                img_id = int(path.stem)
+                img_id_to_path[img_id] = str(path)
+        for v in data:
+                rel = v['relationships'][0]
+                rel_txt = rel['predicate']
+
+                entity_id_to_txt_gt = {e['object_id']: ','.join(e['attributes']) + " " + e['names'][0] for e in v['objects']}
+                subj_txt_gt = entity_id_to_txt_gt[rel['subject_id']]
+                obj_txt_gt = entity_id_to_txt_gt[rel['object_id']]
+                caption_gt = subj_txt_gt + " " + rel_txt + " " + obj_txt_gt
+                
+                v['objects'][0]['attributes'], v['objects'][1]['attributes'] = v['objects'][1]['attributes'], v['objects'][0]['attributes']
+                entity_id_to_txt_adv = {e['object_id']: ','.join(e['attributes']) + " " + e['names'][0] for e in v['objects']}
+                subj_txt_adv = entity_id_to_txt_adv[rel['subject_id']]
+                obj_txt_adv = entity_id_to_txt_adv[rel['object_id']]
+                caption_adv = subj_txt_adv + " " + rel_txt + " " + obj_txt_adv
+                
+                img_path = img_id_to_path[v['image_id']]
+                self.captions_gt.append(caption_gt)
+                self.captions_adv.append(caption_adv)
+                self.img_paths.append(img_path)
+        print("self.captions_gt", self.captions_gt[-10:])
+        print("self.captions_adv", self.captions_adv[-10:])
