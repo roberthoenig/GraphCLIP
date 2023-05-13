@@ -18,9 +18,6 @@ def dropout_node_keep_master_nodes(edge_index, batch, p = 0.5,
                  training = True,
                  exclude_from_dropout=None,
                  dropout_mask=None):
-    if p < 0. or p > 1.:
-        raise ValueError(f'Dropout probability has to be between 0 and 1 '
-                         f'(got {p}')
 
     num_nodes = maybe_num_nodes(edge_index, num_nodes)
 
@@ -28,6 +25,10 @@ def dropout_node_keep_master_nodes(edge_index, batch, p = 0.5,
         node_mask = edge_index.new_ones(num_nodes, dtype=torch.bool)
         edge_mask = edge_index.new_ones(edge_index.size(1), dtype=torch.bool)
         return edge_index, edge_mask, node_mask
+
+    if p < 0. or p > 1.:
+        raise ValueError(f'Dropout probability has to be between 0 and 1 '
+                         f'(got {p}')
 
     if dropout_mask is None:
         prob = torch.rand(num_nodes, device=edge_index.device)
