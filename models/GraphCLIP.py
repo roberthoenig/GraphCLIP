@@ -660,7 +660,7 @@ class GraphCLIP():
                 loss = loss_fn(y_pred, y_adv, data.y, model.logit_scale)
             else:
                 data = data.to(self.config["device"])
-                loss = loss_fn(model(data), data.y, model.logit_scale, p_dropout=p_dropout)
+                loss = loss_fn(model(data, p_dropout=p_dropout), data.y, model.logit_scale)
             return loss
 
         pbar_epochs = tqdm(range(n_epochs), position=0)
