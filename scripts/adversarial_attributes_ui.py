@@ -57,8 +57,8 @@ def reject_graph(graph_index):
     show_graph(graph_index + 1)
 
 def save_accepted_graphs():
-    with open("datasets/visual_genome/raw/datasets/visual_genome/raw/realistic_adversarial_attributes_gt_accepted.json", "w") as f:
-        raise Exception()
+    with open("datasets/visual_genome/raw/realistic_adversarial_attributes_gt_accepted.json", "w") as f:
+        # raise Exception()
         json.dump(accepted_graphs, f)
 
 # Create the main window

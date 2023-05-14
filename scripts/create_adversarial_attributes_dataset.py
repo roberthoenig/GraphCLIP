@@ -22,6 +22,8 @@ from pathlib import Path
 SCENE_GRAPHS_PATH = "datasets/visual_genome/raw/scene_graphs.json"
 IMAGE_DATA_PATH = "datasets/visual_genome/raw/image_data.json"
 
+most_common_attrs = ['white', 'black', 'blue', 'green', 'red', 'brown', 'yellow', 'small', 'large', 'wooden', 'gray', 'silver', 'metal', 'orange', 'grey', 'tall', 'long', 'dark', 'pink', 'clear', 'standing', 'round', 'tan', 'glass', 'here', 'wood', 'open', 'purple', 'big', 'short', 'plastic', 'parked', 'sitting', 'walking', 'striped', 'brick', 'young', 'gold', 'old', 'hanging', 'empty', 'on', 'bright', 'concrete', 'cloudy', 'colorful', 'one', 'beige', 'bare', 'wet', 'light', 'square', 'little', 'closed', 'stone', 'blonde', 'shiny', 'thin', 'dirty', 'flying', 'smiling', 'painted', 'thick', 'part', 'sliced', 'playing', 'tennis', 'calm', 'leather', 'distant', 'rectangular', 'looking', 'grassy', 'dry', 'light brown', 'cement', 'leafy', 'wearing', 'tiled', "man's", 'light blue', 'baseball', 'cooked', 'pictured', 'curved', 'decorative', 'dead', 'eating', 'paper', 'paved', 'fluffy', 'lit', 'back', 'framed', 'plaid', 'dirt', 'watching', 'colored', 'stuffed', 'circular']
+
 # Load graphs and image descriptions
 print(f"Loading {SCENE_GRAPHS_PATH}")
 with open(SCENE_GRAPHS_PATH) as f:
@@ -77,36 +79,35 @@ for graph in tqdm(graphs):
             e1_e2_relationships = [rel for rel in graph['relationships'] if
                 rel['object_id'] in {e1['object_id'], e2['object_id']} 
                 and rel['subject_id'] in {e1['object_id'], e2['object_id']} ]
-            # Proceed only if there exists at least one edge between e1 and e2
-            if len(e1_e2_relationships) > 0:
-                # Filter attributes to not overlap
-                e1_filtered_attrs = [attr for attr in e1.get('attributes', []) if
-                    # e2 must not have attribute attr
-                    attr not in e2.get('attributes', []) and
-                    # at least one object named like e2 must have attribute attr 
-                    any(attr in name_to_attrs[name] for name in e2['names'])]
-                e2_filtered_attrs = [attr for attr in e2.get('attributes', []) if
-                    # e1 must not have attribute attr
-                    attr not in e1.get('attributes', []) and
-                    # at least one object named like e1 must have attribute attr 
-                    any(attr in name_to_attrs[name] for name in e1['names'])
-                    ]
-                # Loop over all pairs of attributes
-                for a1 in e1_filtered_attrs:
-                    for a2 in e2_filtered_attrs:
-                        assert a1 != a2
-                        # Create a new graph that contains only e1 and e2 with attributes a1 and a2
-                        new_e1 = deepcopy(e1)
-                        new_e1['attributes'] = [a1]
-                        new_e2 = deepcopy(e2)
-                        new_e2['attributes'] = [a2]
-                        new_graph = {
-                            'image_id': graph['image_id'],
-                            'relationships': e1_e2_relationships,
-                            'objects': [new_e1, new_e2]
-                        }
-                        new_graphs.append(new_graph)
-                        appended += 1
+            # Filter attributes to not overlap
+            e1_filtered_attrs = [attr for attr in e1.get('attributes', []) if
+                # e2 must not have attribute attr
+                attr not in e2.get('attributes', []) and
+                # at least one object named like e2 must have attribute attr 
+                any(attr in name_to_attrs[name] for name in e2['names']) and
+                attr in most_common_attrs]
+            e2_filtered_attrs = [attr for attr in e2.get('attributes', []) if
+                # e1 must not have attribute attr
+                attr not in e1.get('attributes', []) and
+                # at least one object named like e1 must have attribute attr 
+                any(attr in name_to_attrs[name] for name in e1['names']) and
+                attr in most_common_attrs]
+            # Loop over all pairs of attributes
+            for a1 in e1_filtered_attrs:
+                for a2 in e2_filtered_attrs:
+                    assert a1 != a2
+                    # Create a new graph that contains only e1 and e2 with attributes a1 and a2
+                    new_e1 = deepcopy(e1)
+                    new_e1['attributes'] = [a1]
+                    new_e2 = deepcopy(e2)
+                    new_e2['attributes'] = [a2]
+                    new_graph = {
+                        'image_id': graph['image_id'],
+                        'relationships': e1_e2_relationships,
+                        'objects': [new_e1, new_e2]
+                    }
+                    new_graphs.append(new_graph)
+                    appended += 1
     print(f"{graph['image_id']}: {appended} samples extracted.")
 
 # Save all newly created graphs
