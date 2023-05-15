@@ -16,6 +16,8 @@ def copy_graph(g):
     g_copy.add_edges_from(g.edges(data=True))
     g_copy.labels = g.labels
     g_copy.image_id = g.image_id
+    g_copy.image_w = g.image_w
+    g_copy.image_h = g.image_h
     return g_copy
 
 def plot_graph(g):

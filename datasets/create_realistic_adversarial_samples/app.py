@@ -9,6 +9,7 @@ app = Flask(__name__ , template_folder='templates')
 
 @app.route('/')
 def index():
+    print("getting next image")
     image_path, options = get_next_image()
     with open(image_path, "rb") as f:
         img_data = base64.b64encode(f.read()).decode('utf-8')
