@@ -1,0 +1,26 @@
+model = "GraphCLIP"
+dataset = "VisualGenomeAdversarial2"
+seed = 123456
+device = "cuda:0"
+type = "eval_adversarial"
+
+[dataset_args]
+root = "datasets/visual_genome"
+n_samples = "all"
+transform = "add_master_node_with_bidirectional_edges"
+use_long_rel_enc = false
+[dataset_args.enc_cfg]
+model_name = "ViT-g-14"
+pretrained = "laion2b_s12b_b42k"
+use_clip_latents = false
+device = "cuda:0"
+
+[eval_args]
+train_val_split = 0.0
+load_checkpoint_path = ""
+normalize = false
+
+[dataset_filter_args]
+filters = []
+[valset_filter_args]
+filters = []

@@ -180,7 +180,7 @@ def tokens_to_embeddings(data, embedding):
 def tokens_to_embeddings_batched(batch, embeddings):
     return batch_transform(tokens_to_embeddings, batch, embeddings)
 
-def process_adversarial_dataset(in_dir, in_fname):
+def process_adversarial_dataset(in_dir, in_fname, out_fname_ext):
     with open(osp.join(in_dir, in_fname), 'r') as f:
         adv_data = json.load(f)
     data_gt = []
@@ -216,10 +216,10 @@ def process_adversarial_dataset(in_dir, in_fname):
             else:
                 data_adv.append(sample)
         
-    with open(osp.join(in_dir, "scene_graphs_gt.json"), 'w') as f:
+    with open(osp.join(in_dir, f"scene_graphs_gt{out_fname_ext}.json"), 'w') as f:
         json.dump(data_gt, f)
 
-    with open(osp.join(in_dir, "scene_graphs_adv.json"), 'w') as f:
+    with open(osp.join(in_dir, f"scene_graphs_adv{out_fname_ext}.json"), 'w') as f:
         json.dump(data_adv, f)
 
 class MultiDataLoader:

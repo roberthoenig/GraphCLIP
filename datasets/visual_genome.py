@@ -153,7 +153,8 @@ class VisualGenome(InMemoryDataset):
 
     @property
     def raw_file_names(self):
-        return ['scene_graphs.json.zip', 'images.zip', 'images2.zip', 'image_data.json.zip', 'annotations_trainval2017.zip', 'realistic_adversarial_samples.json']
+        return ['scene_graphs.json.zip', 'images.zip', 'images2.zip', 'image_data.json.zip', 'annotations_trainval2017.zip', 'realistic_adversarial_samples.json',
+        'realistic_adversarial_samples2.json']
 
     @property
     def processed_file_names(self):
@@ -176,7 +177,8 @@ class VisualGenome(InMemoryDataset):
 
     def process(self):
         logging.info("Processing adversarial dataset...")
-        process_adversarial_dataset(in_dir=self.raw_dir, in_fname=self.raw_file_names[5])
+        process_adversarial_dataset(in_dir=self.raw_dir, in_fname=self.raw_file_names[5], out_fname_ext="")
+        process_adversarial_dataset(in_dir=self.raw_dir, in_fname=self.raw_file_names[6], out_fname_ext="2")
         # Read data into huge `Data` list.
         logging.info("Loading scene graph JSON file...")
         with open(osp.join(self.raw_dir, self.scene_graphs_filename), 'r') as f:
@@ -246,6 +248,20 @@ class VisualGenomeAdversarial(Dataset):
     def __init__(self, *args, **kwargs):
         self.dataset_gt = VisualGenome(*args, **kwargs,  scene_graphs_filename="scene_graphs_gt.json")
         self.dataset_adv = VisualGenome(*args, **kwargs, scene_graphs_filename="scene_graphs_adv.json")
+
+    def __len__(self):
+        return len(self.dataset_gt)
+
+    def __getitem__(self, idx):
+        return {
+            "gt": self.dataset_gt[idx],
+            "adv": self.dataset_adv[idx],
+        }
+
+class VisualGenomeAdversarial2(Dataset):
+    def __init__(self, *args, **kwargs):
+        self.dataset_gt = VisualGenome(*args, **kwargs,  scene_graphs_filename="scene_graphs_gt2.json")
+        self.dataset_adv = VisualGenome(*args, **kwargs, scene_graphs_filename="scene_graphs_adv2.json")
 
     def __len__(self):
         return len(self.dataset_gt)
