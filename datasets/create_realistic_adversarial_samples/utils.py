@@ -11,16 +11,17 @@ import torch
 import networkx as nx
 
 ####################################################################################
-image_dir = "/local/home/stuff/visual-genome/VG/"
+image_dir = "/local/home/jthomm/GraphCLIP/datasets/visual_genome/raw/VG/"
 metadata_path = "/local/home/jthomm/GraphCLIP/datasets/visual_genome/processed/"
+MODE = "unique-triplets" #"multi-predicate"
 ####################################################################################
 
-filtered_graphs_ = get_filtered_graphs(True)
+filtered_graphs_ = get_filtered_graphs(False)
 relationship_labels = get_filtered_relationships()
 object_labels = get_filtered_objects()
 attribute_labels = get_filtered_attributes()
 
-random.seed(42)
+# random.seed(423)
 
 shuffled_graphs_ = filtered_graphs_.copy()
 random.shuffle(shuffled_graphs_)
@@ -45,7 +46,7 @@ for g in shuffled_graphs_:
         background_score += g.nodes[node]['y']-height*0.1 >=0 
         background_score += g.nodes[node]['x']+g.nodes[node]['w']+width*0.1 <= width 
         background_score += g.nodes[node]['y']+g.nodes[node]['h']+height*0.1 <= height
-        if relative_width*relative_height > 0.05 and background_score < 3:
+        if relative_width*relative_height > 0.1 and background_score < 3:
             pass
         else:
             graph_copy.remove_node(node)
@@ -60,15 +61,23 @@ for graph in shuffled_graphs:
         key = graph.nodes[edge[0]]['name'] + " " + graph.nodes[edge[1]]['name']
         if key not in histogram:
             histogram[key] = {graph.edges[edge]['predicate']: [(graph, edge)]}
-        elif graph.edges[edge]['predicate'] not in histogram[key]:
-            histogram[key][graph.edges[edge]['predicate']] = [(graph, edge)]
-        else:
-            histogram[key][graph.edges[edge]['predicate']].append((graph, edge))
+        elif MODE == "multi-predicate":
+            if graph.edges[edge]['predicate'] not in histogram[key]:
+                histogram[key][graph.edges[edge]['predicate']] = [(graph, edge)]
+            else:
+                histogram[key][graph.edges[edge]['predicate']].append((graph, edge))
+        elif MODE == "unique-triplets":
+            histogram.pop(key) # remove the key, because there is more than one occurence
 list_of_keys = list(histogram.keys())
-for key in list_of_keys:
-    if len(histogram[key].keys()) <= 1:
-        # drop the key, because there is only one predicate
-        histogram.pop(key)
+if MODE == "multi-predicate":
+    for key in list_of_keys:
+        if len(histogram[key].keys()) <= 1:
+            # drop the key, because there is only one predicate
+            histogram.pop(key)
+elif MODE == "unique-triplets":
+    pass
+else:
+    raise Exception("unknown mode")
 
 print(f"created histogram with {len(histogram)} many keys")
 # choose a random key from the histogram
@@ -137,6 +146,7 @@ def get_next_image():
         state = {
             "key": new_key,
             "already_chosen_predicate": None,
+            "already_chosen_adv_predicate": None,
             "already_chosen_graph_and_edge": None,
             "current_graph": next_graph_and_edge[0],
             "current_edge": next_graph_and_edge[1],
@@ -150,6 +160,7 @@ def get_next_image():
         state = {
             "key": state["key"],
             "already_chosen_predicate": state["already_chosen_predicate"],
+            "already_chosen_adv_predicate": state["already_chosen_adv_predicate"],
             "already_chosen_graph_and_edge": state["already_chosen_graph_and_edge"],
             "current_graph": next_graph_and_edge[0],
             "current_edge": next_graph_and_edge[1],
@@ -158,6 +169,15 @@ def get_next_image():
 
     image_path = image_dir + f'{state["current_graph"].image_id}.jpg'
     options = _options_list(state["current_graph"])
+    if len(options) == 0:
+        current_predicate = state["current_graph"].edges[state["current_edge"]]["predicate"]
+        new_predicate_list = [x for x in histogram[state["key"]][current_predicate] if x[1]!=state["current_edge"]]
+        histogram[state["key"]][current_predicate] = new_predicate_list
+        if len(histogram[state["key"]][current_predicate]) == 0:
+            histogram[state["key"]].pop(current_predicate)
+        if state["key"] is not None and len(histogram[state["key"]]) == 0:
+            histogram.pop(state["key"])
+        return get_next_image()
     return image_path, options
 
 
@@ -174,29 +194,43 @@ def process_image(selected_options):
     if len(selected_options) > 0:
         s = selected_options[0]
         edge, adv_predicate = _parse_selection(s)
+        orig_predicate = state["current_graph"].edges[edge]["predicate"]
         g = copy_graph(state["current_graph"])
-        if state["already_chosen_graph_and_edge"] is not None:
-            selections.append((state["already_chosen_graph_and_edge"][0], state["already_chosen_graph_and_edge"][1], state["already_chosen_predicate"]))
+        if MODE == "multi-predicate":
+            if state["already_chosen_graph_and_edge"] is not None:
+                selections.append((state["already_chosen_graph_and_edge"][0], state["already_chosen_graph_and_edge"][1], state["already_chosen_adv_predicate"]))
+                selections.append((g, edge, adv_predicate))
+                print(f"saved {state['already_chosen_graph_and_edge'][0].image_id} with {state['already_chosen_graph_and_edge'][1]} and {state['already_chosen_adv_predicate']}")
+                print(f"saved {g.image_id} with {edge} and {adv_predicate}")
+                state["key"] = None
+            else:
+                state["already_chosen_graph_and_edge"] = (g, edge)
+                state["already_chosen_predicate"] = orig_predicate
+                state["already_chosen_adv_predicate"] = adv_predicate
+                print(f"added candidate {g.image_id} with {edge} and {adv_predicate}")
+                assert state["key"] in histogram
+                histogram[state["key"]].pop(orig_predicate)
+        elif MODE=="unique-triplets":
             selections.append((g, edge, adv_predicate))
-            print(f"saved {state['already_chosen_graph_and_edge'][0].image_id} with {state['already_chosen_graph_and_edge'][1]} and {state['already_chosen_predicate']}")
+            histogram.pop(state["key"]) # since we are in the unique node, we can remove the key
             print(f"saved {g.image_id} with {edge} and {adv_predicate}")
-        else:
-            state["already_chosen_graph_and_edge"] = (g, edge)
-            state["already_chosen_predicate"] = adv_predicate
-            print(f"added candidate {g.image_id} with {edge} and {adv_predicate}")
-        histogram[state["key"]].pop(adv_predicate)
     else:
         # remove the current graph, edge from the histogram
         current_predicate = state["current_graph"].edges[state["current_edge"]]["predicate"]
-        histogram[state["key"]][current_predicate] = [x for x in histogram[state["key"]][current_predicate] if x[1]!=state["current_edge"]]
+        new_predicate_list = [x for x in histogram[state["key"]][current_predicate] if x[1]!=state["current_edge"]]
+        assert len(new_predicate_list) == len(histogram[state["key"]][current_predicate])-1
+        histogram[state["key"]][current_predicate] = new_predicate_list
         if len(histogram[state["key"]][current_predicate]) == 0:
             histogram[state["key"]].pop(current_predicate)
-        if len(histogram[state["key"]]) == 0:
-            histogram.pop(state["key"])
+    if state["key"] is not None and state["key"] in histogram and len(histogram[state["key"]]) == 0:
+        histogram.pop(state["key"])
 
     torch.save(selections, metadata_path + "ra_selections_curated_adversarial2.pt")
     torch.save(already_rated, metadata_path + "ra_already_rated2.pt")
     print(f"saved {len(selections)} many selections")
 
 
-
+def remove_edge():
+    global state
+    global histogram
+    histogram.pop(state["key"])

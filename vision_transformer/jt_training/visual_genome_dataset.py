@@ -197,8 +197,9 @@ def get_realistic_graphs_dataset_ViT(
         preprocess_func,
         image_dir="/local/home/stuff/visual-genome/VG/",
         mode='bounding_boxes',
+        version='v1'
 ):
-    dataset = get_realistic_graphs_dataset()
+    dataset = get_realistic_graphs_dataset(version=version)
     id_edge_graph_dict_test_orig = {
         (d['original_graph'].image_id, d['changed_edge']
         ): d['original_graph']

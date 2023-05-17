@@ -3,7 +3,7 @@ import base64
 import io
 from PIL import Image
 # from your_script import process_image, get_next_image
-from utils import get_next_image, process_image
+from utils import get_next_image, process_image, remove_edge
 
 app = Flask(__name__ , template_folder='templates')
 
@@ -23,6 +23,15 @@ def next_image():
     with open(image_path, "rb") as f:
         img_data = base64.b64encode(f.read()).decode('utf-8')
     return render_template("index.html", img_data=img_data, options=options)
+
+@app.route('/skip_edge', methods=["POST"])
+def skip_edge():
+    remove_edge()
+    image_path, options = get_next_image()
+    with open(image_path, "rb") as f:
+        img_data = base64.b64encode(f.read()).decode('utf-8')
+    return render_template("index.html", img_data=img_data, options=options)
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', debug=True)
