@@ -25,6 +25,9 @@
                 {% endfor %}
                 <input type="submit" value="Next">
             </form>
+            <form action="/skip_edge" method="POST" style="margin-top: 10px;">
+                <input type="submit" value="Skip Edge">
+            </form>
         </div>
         <img src="data:image/jpeg;base64,{{ img_data }}" alt="Image" width="500" height="500">
     </div>

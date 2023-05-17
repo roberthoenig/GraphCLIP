@@ -154,9 +154,12 @@ def convert_all_adversarially_realistic(g, relationship_labels):
     return adv_perturbations
     
 
-def get_realistic_graphs_dataset():
+def get_realistic_graphs_dataset(version='v1'):
     metadata_path = utils.LOCAL_DATA_PATH +  "processed/"
-    curated_adversarialt = torch.load(metadata_path + "ra_selections_curated_adversarial.pt") # a dict with image_id as key and a graph and the adversarial perturbations as value
+    if version == 'v1':
+        curated_adversarialt = torch.load(metadata_path + "ra_selections_curated_adversarial.pt") # a dict with image_id as key and a graph and the adversarial perturbations as value
+    elif version == 'v2':
+        curated_adversarialt = torch.load(metadata_path + "ra_selections_curated_adversarial2.pt")
     # the format of the dict is {image_id: [(original_graph,graph_edge,adv_predicate), ...]}
     # we return a list of tuples (graphs, adv_graph, adv_edge, adv_predicate) for each image for each adversarial perturbation
     dataset = []
