@@ -7,7 +7,7 @@ import sys
 from os.path import dirname, abspath
 d = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(d)
-from datasets.VG_graphs import get_filtered_relationships, get_filtered_objects, get_filtered_attributes, copy_graph, get_realistic_graphs_dataset, plot_graph
+from .VG_graphs import get_filtered_relationships, get_filtered_objects, get_filtered_attributes, copy_graph, get_realistic_graphs_dataset, plot_graph
 import random
 
 class CustomImageDataset(Dataset):
@@ -193,13 +193,12 @@ def get_dataloader(
     return dataloader_train, dataloader_val
 
 
-def get_realistic_graphs_dataset_ViT_relationships(
+def get_realistic_graphs_dataset_ViT(
         preprocess_func,
         image_dir="/local/home/stuff/visual-genome/VG/",
         mode='bounding_boxes',
-        version='v1'
 ):
-    dataset = get_realistic_graphs_dataset(version=version)
+    dataset = get_realistic_graphs_dataset()
     id_edge_graph_dict_test_orig = {
         (d['original_graph'].image_id, d['changed_edge']
         ): d['original_graph']
@@ -214,37 +213,3 @@ def get_realistic_graphs_dataset_ViT_relationships(
     dataset_test_adv = CustomImageDataset(image_dir, id_edge_graph_dict_test_adv, preprocess_func, mode=mode, compute_occurence_probabilities=False)
     return dataset_test_orig, dataset_test_adv, dataset
 
-def get_realistic_graphs_dataset_ViT(
-        preprocess_func,
-        image_dir="/local/home/stuff/visual-genome/VG/",
-        mode='bounding_boxes',
-        version='v1',
-        type = 'relationships'
-):
-    if type=='relationships':
-        return get_realistic_graphs_dataset_ViT_relationships(preprocess_func, image_dir, mode, version)
-    elif type=='objects':
-        return get_realistic_graphs_dataset_ViT_attributes(preprocess_func, image_dir, mode, version)
-    else:
-        raise ValueError(f'Unknown type {type}')
-    
-def get_realistic_graphs_dataset_ViT_attributes(
-        preprocess_func,
-        image_dir="/local/home/stuff/visual-genome/VG/",
-        mode='bounding_boxes',
-        version='v1'
-):
-    dataset = get_realistic_graphs_dataset(version=version)
-    id_node_graph_dict_test_orig = {
-        (d['original_graph'].image_id, (n,n)
-        ): d['original_graph']
-        for d in dataset
-    }
-    id_node_graph_dict_test_adv = {
-        (d['adv_graph'].image_id, (n,n)
-        ): d['adv_graph']
-        for d in dataset
-    }
-    dataset_test_orig = CustomImageDataset(image_dir, id_node_graph_dict_test_orig, preprocess_func, mode=mode, compute_occurence_probabilities=False)
-    dataset_test_adv = CustomImageDataset(image_dir, id_node_graph_dict_test_adv, preprocess_func, mode=mode, compute_occurence_probabilities=False)
-    return dataset_test_orig, dataset_test_adv, dataset

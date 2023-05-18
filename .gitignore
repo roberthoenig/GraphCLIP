@@ -130,5 +130,3 @@ scripts/explore_chatgpt_captions.py
 
 experiments/*
 !experiments/*.toml
-
-relational_image_generation_evaluation
