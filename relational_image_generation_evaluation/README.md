@@ -27,7 +27,6 @@ You can load a dataset and evaluate some images (here we just load visualgenome 
 
 ```
 import relational_image_generation_evaluation as rige
-from rige import EvalDataset
 
 evaluator = rige.Evaluator('ViT-L/14')
 # this is not the test set or so. It's just a flag to make loading faster
