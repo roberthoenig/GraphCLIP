@@ -19,6 +19,10 @@ The models available are:
 * 'ViT-B/32' (finetuned ViT that takes in text embeddings of object names and classifies a fixed set of attributes and relationships)
 * ViT-L/14 (larger finetuned ViT that takes in text embeddings of object names and classifies a fixed set of attributes and relationships)
 
+## example useage
+
+**Please look at the usage.ipynb to get more extensive usage demonstration**
+
 You can load a dataset and evaluate some images (here we just load visualgenome images) like this. The idea is that you generate images using stable diffusion to check whether they correspond to the graph.
 
 ```
