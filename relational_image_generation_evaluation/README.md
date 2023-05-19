@@ -30,16 +30,16 @@ import relational_image_generation_evaluation as rige
 
 evaluator = rige.Evaluator('ViT-L/14')
 # this is not the test set or so. It's just a flag to make loading faster
-dataloader_one = rige.get_two_edge_dataloader()
+dataloader_two = rige.get_two_edge_dataloader()
 
 from PIL import Image
 images = []
 graphs = []
 for i in range(10):
-    graph = next(iter(dataloader_one))[0]
+    graph = next(iter(dataloader_two))[0]
     image_id = graph.image_id
     # adapt to your local directory
-    IMAGE_DIR = '.../VG/'
+    IMAGE_DIR = '...youpath_to_visualgenome/VG/'
     image = Image.open(IMAGE_DIR + str(image_id) + '.jpg')
     images.append(image)
     graphs.append(graph)
