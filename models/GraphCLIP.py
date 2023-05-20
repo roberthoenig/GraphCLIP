@@ -2,7 +2,7 @@ import torch
 from datasets.visual_genome import VisualGenome, VisualGenomeAdversarial, VisualGenomeAdversarial2, VisualGenomeAdversarialAttr
 from models.MyLayer import construct_my_layer, construct_my_layer2
 from models.MyTransformerConv import MyTransformerConv
-from utils.dataset_utils import MultiDataLoader, dataset_filter, make_sample_all_relations_batched, make_sample_relation_batched, transfer_attributes_batched, tokens_to_embeddings_batched
+from utils.dataset_utils import MultiDataLoader, dataset_filter, make_sample_all_relations_batched, make_sample_relation_batched, swap_attributes_batched, transfer_attributes_batched, tokens_to_embeddings_batched
 from utils.eval_utils import compute_ranking_metrics_from_features, compute_accuracy_from_adversarial_features
 from tqdm import tqdm
 import torch
@@ -583,6 +583,8 @@ class GraphCLIP():
                 adv_transform = make_sample_relation_batched(txt_enc, **cfg['train_args'].get('adv_transform_args', dict()))
             if adv_transform == "replace_all_edges":
                 adv_transform = make_sample_all_relations_batched(txt_enc, **cfg['train_args'].get('adv_transform_args', dict()))
+            if adv_transform == "swap_attrs":
+                adv_transform = swap_attributes_batched
             elif adv_transform is not None:
                 logging.info(f"Unknown adversarial transform {adv_transform}.")
             # Adversarial transform dropout exclusion

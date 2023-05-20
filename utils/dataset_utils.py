@@ -35,6 +35,15 @@ def make_remove_adv_dataset_samples():
         return not (data.image_id.item() in ids)
     return remove_adv_dataset_samples
 
+def make_remove_adv_attr_dataset_samples():
+    with open("datasets/visual_genome/raw/realistic_adversarial_attributes_gt_accepted_pruned.json", "r") as f:
+        samples = json.load(f)
+        ids = [int(s['image_id']) for s in samples]
+        print("ids", ids)
+    def remove_adv_dataset_samples(data):
+        return not (data.image_id.item() in ids)
+    return remove_adv_dataset_samples
+
 def dataset_filter(dataset, filters=[]):
     filter_fns = []
     for filter in filters:
@@ -51,6 +60,8 @@ def dataset_filter(dataset, filters=[]):
             filter_fn = make_is_not_visualgenome_duplicate(vg_dupes)
         elif filter == "remove_adv_dataset_samples":
             filter_fn = make_remove_adv_dataset_samples()
+        elif filter == "remove_adv_attr_dataset_samples":
+            filter_fn = make_remove_adv_attr_dataset_samples()
         elif filter is None:
             filter_fn = lambda x: True
         else:
@@ -113,6 +124,11 @@ def transfer_attributes(data):
     data.edge_index[1, edge_idx] = node_to_receive
     return data
 
+# !!! Assumes that each attribute has exactly ONE outgoing edge !!!
+def swap_attributes(data):
+    data.x[[data.attr_nodes[0].item(), data.attr_nodes[1].item()]] = data.x[[data.attr_nodes[1].item(), data.attr_nodes[0].item()]]
+    return data
+
 with open("datasets/visual_genome/raw/relation_distribution.json", "r") as f:
     rel_distr = json.load(f)
 SZ = 1_000_000
@@ -138,6 +154,9 @@ def sample_relation(data, txt_enc, replacement_prob):
 
 def transfer_attributes_batched(batch):
     return batch_transform(transfer_attributes, batch)
+
+def swap_attributes_batched(batch):
+     return batch_transform(swap_attributes, batch) 
 
 def make_sample_relation_batched(txt_enc, replacement_prob=1.0):
     def sample_relation_batched(batch):

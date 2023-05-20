@@ -22,6 +22,11 @@ from pathlib import Path
 SCENE_GRAPHS_PATH = "datasets/visual_genome/raw/scene_graphs.json"
 IMAGE_DATA_PATH = "datasets/visual_genome/raw/image_data.json"
 
+# Flags
+ONLY_REALISTIC_SWAPS = False
+ONLY_COMMON_OBJECTS = False
+ONLY_COMMON_ATTRIBUTES = False
+
 most_common_attrs = ['white', 'black', 'blue', 'green', 'red', 'brown', 'yellow', 'small', 'large', 'wooden', 'gray', 'silver', 'metal', 'orange', 'grey', 'tall', 'long', 'dark', 'pink', 'clear', 'standing', 'round', 'tan', 'glass', 'here', 'wood', 'open', 'purple', 'big', 'short', 'plastic', 'parked', 'sitting', 'walking', 'striped', 'brick', 'young', 'gold', 'old', 'hanging', 'empty', 'on', 'bright', 'concrete', 'cloudy', 'colorful', 'one', 'beige', 'bare', 'wet', 'light', 'square', 'little', 'closed', 'stone', 'blonde', 'shiny', 'thin', 'dirty', 'flying', 'smiling', 'painted', 'thick', 'part', 'sliced', 'playing', 'tennis', 'calm', 'leather', 'distant', 'rectangular', 'looking', 'grassy', 'dry', 'light brown', 'cement', 'leafy', 'wearing', 'tiled', "man's", 'light blue', 'baseball', 'cooked', 'pictured', 'curved', 'decorative', 'dead', 'eating', 'paper', 'paved', 'fluffy', 'lit', 'back', 'framed', 'plaid', 'dirt', 'watching', 'colored', 'stuffed', 'circular']
 
 most_common_objs = ['man', 'person', 'window', 'tree', 'building', 'shirt', 'wall', 'woman', 'sign', 'sky', 'ground', 'grass', 'table', 'pole', 'head', 'light', 'water', 'car', 'hand', 'hair', 'people', 'leg', 'trees', 'clouds', 'ear', 'plate', 'leaves', 'fence', 'door', 'pants', 'eye', 'train', 'chair', 'floor', 'road', 'street', 'hat', 'snow', 'wheel', 'shadow', 'jacket', 'nose', 'boy', 'line', 'shoe', 'clock', 'sidewalk', 'boat', 'tail', 'cloud', 'handle', 'letter', 'girl', 'leaf', 'horse', 'bus', 'helmet', 'bird', 'giraffe', 'field', 'plane', 'flower', 'elephant', 'umbrella', 'dog', 'shorts', 'arm', 'zebra', 'face', 'windows', 'sheep', 'glass', 'bag', 'cow', 'bench', 'cat', 'food', 'bottle', 'rock', 'tile', 'kite', 'tire', 'post', 'number', 'stripe', 'surfboard', 'truck', 'logo', 'glasses', 'roof', 'skateboard', 'motorcycle', 'picture', 'flowers', 'bear', 'player', 'foot', 'bowl', 'mirror', 'background', 'pizza', 'bike', 'shoes', 'spot', 'tracks', 'pillow', 'shelf', 'cap', 'mouth', 'box', 'jeans', 'dirt', 'lights', 'legs', 'house', 'part', 'trunk', 'banana', 'top', 'plant', 'cup', 'counter', 'board', 'bed', 'wave', 'bush', 'ball', 'sink', 'button', 'lamp', 'beach', 'brick', 'flag', 'neck', 'sand', 'vase', 'writing', 'wing', 'paper', 'seat', 'lines', 'reflection', 'coat', 'child', 'toilet', 'laptop', 'airplane', 'letters', 'glove', 'vehicle', 'phone', 'book', 'branch', 'sunglasses', 'edge', 'cake', 'desk', 'rocks', 'frisbee', 'tie', 'tower', 'animal', 'hill', 'mountain', 'headlight', 'ceiling', 'cabinet', 'eyes', 'stripes', 'wheels', 'lady', 'ocean', 'racket', 'container', 'skier', 'keyboard', 'towel', 'frame', 'windshield', 'hands', 'back', 'track', 'bat', 'finger', 'pot', 'orange', 'fork', 'waves', 'design', 'feet', 'basket', 'fruit', 'broccoli', 'engine', 'guy', 'knife', 'couch', 'railing', 'collar', 'cars']
@@ -51,11 +56,11 @@ for graph in graphs:
             
 
 # Filter graphs to all MSCOCO graphs (Assuming MSCOCO graphs are those with a valid coco_id)
-print("Filtering graphs to MSCOCO")
-with open("datasets/visual_genome/raw/annotations/instances_val2017.json", 'r') as f:
-    mscoco_val_dict = json.load(f)
-    coco_val_ids = set([int(Path(o['file_name']).stem) for o in mscoco_val_dict['images']])
-graphs = [graph for graph in graphs if image_dict[graph['image_id']]['coco_id'] in coco_val_ids]
+# print("Filtering graphs to MSCOCO")
+# with open("datasets/visual_genome/raw/annotations/instances_val2017.json", 'r') as f:
+#     mscoco_val_dict = json.load(f)
+#     coco_val_ids = set([int(Path(o['file_name']).stem) for o in mscoco_val_dict['images']])
+# graphs = [graph for graph in graphs if image_dict[graph['image_id']]['coco_id'] in coco_val_ids]
 
 new_graphs = []
 
@@ -72,7 +77,7 @@ for graph in tqdm(graphs):
                 if obj['h'] * obj['w'] / image_area >= 0.05 
                 # object names must be unique across the graph
                 and all(len(set(obj['names']).intersection(obj2['names']))==0 or obj2["object_id"]==obj["object_id"] for obj2 in graph['objects'])
-                and any(name in most_common_objs for name in obj['names'])]
+                and ((not ONLY_COMMON_OBJECTS) or any(name in most_common_objs for name in obj['names']))]
     # Loop over all pairs of entities
     for i in range(len(entities)):
         for j in range(i+1, len(entities)):
@@ -87,14 +92,14 @@ for graph in tqdm(graphs):
                 # e2 must not have attribute attr
                 attr not in e2.get('attributes', []) and
                 # at least one object named like e2 must have attribute attr 
-                any(attr in name_to_attrs[name] for name in e2['names']) and
-                attr in most_common_attrs]
+                ((not ONLY_REALISTIC_SWAPS) or any(attr in name_to_attrs[name] for name in e2['names'])) and
+                ((not ONLY_COMMON_ATTRIBUTES) or attr in most_common_attrs)]
             e2_filtered_attrs = [attr for attr in e2.get('attributes', []) if
                 # e1 must not have attribute attr
                 attr not in e1.get('attributes', []) and
                 # at least one object named like e1 must have attribute attr 
-                any(attr in name_to_attrs[name] for name in e1['names']) and
-                attr in most_common_attrs]
+                ((not ONLY_REALISTIC_SWAPS) or any(attr in name_to_attrs[name]) for name in e1['names']) and
+                ((not ONLY_COMMON_ATTRIBUTES) or attr in most_common_attrs)]
             # Loop over all pairs of attributes
             for a1 in e1_filtered_attrs:
                 for a2 in e2_filtered_attrs:
@@ -111,7 +116,7 @@ for graph in tqdm(graphs):
                     }
                     new_graphs.append(new_graph)
                     appended += 1
-    print(f"{graph['image_id']}: {appended} samples extracted.")
+    # print(f"{graph['image_id']}: {appended} samples extracted.")
 
 # Save all newly created graphs
 with open("datasets/visual_genome/raw/realistic_adversarial_attributes_gt.json", 'w') as f:
