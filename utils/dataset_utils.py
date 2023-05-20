@@ -39,7 +39,6 @@ def make_remove_adv_attr_dataset_samples():
     with open("datasets/visual_genome/raw/realistic_adversarial_attributes_gt_accepted_pruned.json", "r") as f:
         samples = json.load(f)
         ids = [int(s['image_id']) for s in samples]
-        print("ids", ids)
     def remove_adv_dataset_samples(data):
         return not (data.image_id.item() in ids)
     return remove_adv_dataset_samples

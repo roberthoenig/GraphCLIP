@@ -231,8 +231,9 @@ class VisualGenome(InMemoryDataset):
             logging.info("Listing PyG graphs...")
             data_list = [d for dd in data_lists for d in dd]
         else:
-            data_list = [dict_to_pyg_graph(d, img_enc_fn, txt_enc_fn, image_id_to_path, metadata, coco_val_ids, self.use_long_rel_enc)
-                        for d, metadata in tqdm(zip(scene_graphs_dict, image_data_dict))]
+            metadatas = {i['image_id']: i for i in image_data_dict}
+            data_list = [dict_to_pyg_graph(d, img_enc_fn, txt_enc_fn, image_id_to_path, metadatas[d['image_id']], coco_val_ids, self.use_long_rel_enc)
+                        for d in tqdm(scene_graphs_dict)]
 
         if self.pre_filter is not None:
             data_list = [data for data in data_list if self.pre_filter(data)]
