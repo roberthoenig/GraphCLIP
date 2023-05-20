@@ -32,7 +32,7 @@ exclude_adv_affected_nodes_from_dropout = false
 loss = "binary_adv_crossentropy_loss"
 [multitasks.dataset_args]
 dataset = "VisualGenome"
-scene_graphs_filename = "realistic_adversarial_attributes_adv.json"
+scene_graphs_filename = "realistic_adversarial_attributes_gt.json"
 root = "datasets/visual_genome"
 n_samples = "all"
 pre_transform = "add_master_node_with_bidirectional_edges"
