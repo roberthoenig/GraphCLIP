@@ -325,7 +325,14 @@ class VisualGenomeAdversarialAttrText(Dataset):
                 img_id = int(path.stem)
                 img_id_to_path[img_id] = str(path)
         for v in data:
-                rel = v['relationships'][0]
+                if len(v['relationships']) > 0:
+                    rel = v['relationships'][0]
+                else:
+                    rel = {
+                        'predicate': "and",
+                        'subject_id': v['objects'][0]['object_id'],
+                        'object_id': v['objects'][1]['object_id'],
+                    }
                 rel_txt = rel['predicate']
 
                 entity_id_to_txt_gt = {e['object_id']: ','.join(e['attributes']) + " " + e['names'][0] for e in v['objects']}
