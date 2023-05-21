@@ -16,6 +16,7 @@ from copy import deepcopy
 from collections import defaultdict
 from tqdm import tqdm
 from pathlib import Path
+from pprint import pprint
 
 # SCENE_GRAPHS_PATH = "test/create_adversarial_attributes_dataset_test/scene_graph_1.json"
 # IMAGE_DATA_PATH = "test/create_adversarial_attributes_dataset_test/image_data_1.json"
@@ -31,8 +32,16 @@ most_common_attrs = ['white', 'black', 'blue', 'green', 'red', 'brown', 'yellow'
 
 most_common_objs = ['man', 'person', 'window', 'tree', 'building', 'shirt', 'wall', 'woman', 'sign', 'sky', 'ground', 'grass', 'table', 'pole', 'head', 'light', 'water', 'car', 'hand', 'hair', 'people', 'leg', 'trees', 'clouds', 'ear', 'plate', 'leaves', 'fence', 'door', 'pants', 'eye', 'train', 'chair', 'floor', 'road', 'street', 'hat', 'snow', 'wheel', 'shadow', 'jacket', 'nose', 'boy', 'line', 'shoe', 'clock', 'sidewalk', 'boat', 'tail', 'cloud', 'handle', 'letter', 'girl', 'leaf', 'horse', 'bus', 'helmet', 'bird', 'giraffe', 'field', 'plane', 'flower', 'elephant', 'umbrella', 'dog', 'shorts', 'arm', 'zebra', 'face', 'windows', 'sheep', 'glass', 'bag', 'cow', 'bench', 'cat', 'food', 'bottle', 'rock', 'tile', 'kite', 'tire', 'post', 'number', 'stripe', 'surfboard', 'truck', 'logo', 'glasses', 'roof', 'skateboard', 'motorcycle', 'picture', 'flowers', 'bear', 'player', 'foot', 'bowl', 'mirror', 'background', 'pizza', 'bike', 'shoes', 'spot', 'tracks', 'pillow', 'shelf', 'cap', 'mouth', 'box', 'jeans', 'dirt', 'lights', 'legs', 'house', 'part', 'trunk', 'banana', 'top', 'plant', 'cup', 'counter', 'board', 'bed', 'wave', 'bush', 'ball', 'sink', 'button', 'lamp', 'beach', 'brick', 'flag', 'neck', 'sand', 'vase', 'writing', 'wing', 'paper', 'seat', 'lines', 'reflection', 'coat', 'child', 'toilet', 'laptop', 'airplane', 'letters', 'glove', 'vehicle', 'phone', 'book', 'branch', 'sunglasses', 'edge', 'cake', 'desk', 'rocks', 'frisbee', 'tie', 'tower', 'animal', 'hill', 'mountain', 'headlight', 'ceiling', 'cabinet', 'eyes', 'stripes', 'wheels', 'lady', 'ocean', 'racket', 'container', 'skier', 'keyboard', 'towel', 'frame', 'windshield', 'hands', 'back', 'track', 'bat', 'finger', 'pot', 'orange', 'fork', 'waves', 'design', 'feet', 'basket', 'fruit', 'broccoli', 'engine', 'guy', 'knife', 'couch', 'railing', 'collar', 'cars']
 
-
-def main():
+def main(type):
+    if type == "1":
+        MIN_AREA = 0.05
+        STRICT_UNIQUENESS = True
+        USE_AND_RELATIONSHIP = False
+    elif type == "2":
+        MIN_AREA = 0.00
+        STRICT_UNIQUENESS = False
+        USE_AND_RELATIONSHIP = True
+        
     # Load graphs and image descriptions
     print(f"Loading {SCENE_GRAPHS_PATH}")
     with open(SCENE_GRAPHS_PATH) as f:
@@ -69,26 +78,41 @@ def main():
     # Loop through graphs
     print("Looping through graphs")
     for graph in tqdm(graphs):
-        appended = 0
         image = image_dict[graph['image_id']]
         image_area = image['width'] * image['height']
         
         # Filter entities
         entities = [obj for obj in graph['objects'] 
                     # bounding box must occupy at least 5% of the image
-                    if obj['h'] * obj['w'] / image_area >= 0.05 
+                    if obj['h'] * obj['w'] / image_area >= MIN_AREA
                     # object names must be unique across the graph
-                    and all(len(set(obj['names']).intersection(obj2['names']))==0 or obj2["object_id"]==obj["object_id"] for obj2 in graph['objects'])
+                    and ((not STRICT_UNIQUENESS) or (all(len(set(obj['names']).intersection(obj2['names']))==0 or obj2["object_id"]==obj["object_id"] for obj2 in graph['objects'])))
                     and ((not ONLY_COMMON_OBJECTS) or any(name in most_common_objs for name in obj['names']))]
         # Loop over all pairs of entities
         for i in range(len(entities)):
             for j in range(i+1, len(entities)):
                 e1, e2 = entities[i], entities[j]
+                if e1['names'][0] == e2['names'][0]:
+                    continue
                 
                 # Compute edges between e1 and e2
-                e1_e2_relationships = [rel for rel in graph['relationships'] if
-                    rel['object_id'] in {e1['object_id'], e2['object_id']} 
-                    and rel['subject_id'] in {e1['object_id'], e2['object_id']} ]
+                if USE_AND_RELATIONSHIP:
+                    e1_e2_relationships = [
+                        {
+                            "predicate": "and",
+                            "object_id": e1['object_id'],
+                            "subject_id": e2['object_id'],
+                        },
+                        {
+                            "predicate": "and",
+                            "object_id": e2['object_id'],
+                            "subject_id": e1['object_id'],
+                        },
+                    ]
+                else: 
+                    e1_e2_relationships = [rel for rel in graph['relationships'] if
+                        rel['object_id'] in {e1['object_id'], e2['object_id']} 
+                        and rel['subject_id'] in {e1['object_id'], e2['object_id']} ]
                 # Filter attributes to not overlap
                 e1_filtered_attrs = [attr for attr in e1.get('attributes', []) if
                     # e2 must not have attribute attr
@@ -107,36 +131,43 @@ def main():
                     for a2 in e2_filtered_attrs:
                         assert a1 != a2
                         # Create a new graph that contains only e1 and e2 with attributes a1 and a2
-                        new_e1 = deepcopy(e1)
-                        new_e1['attributes'] = [a1]
-                        new_e2 = deepcopy(e2)
-                        new_e2['attributes'] = [a2]
                         new_graph = {
                             'image_id': graph['image_id'],
                             'relationships': e1_e2_relationships,
-                            'objects': [new_e1, new_e2]
+                            'objects': [
+                                {
+                                    "object_id": e1['object_id'],
+                                    "names": e1['names'][:1],
+                                    "attributes": e1['attributes'][:1],
+                                },
+                                {
+                                    "object_id": e2['object_id'],
+                                    "names": e2['names'][:1],
+                                    "attributes": e2['attributes'][:1],
+                                }
+                            ]
                         }
                         new_graphs.append(new_graph)
-                        appended += 1
         # print(f"{graph['image_id']}: {appended} samples extracted.")
 
+    print("len(new_graphs)", len(new_graphs))
+    print("Saving new graphs...")
     # Save all newly created graphs
-    with open("datasets/visual_genome/raw/realistic_adversarial_attributes_gt.json", 'w') as f:
+    with open(f"datasets/visual_genome/raw/realistic_adversarial_attributes_gt_{type}.json", 'w') as f:
         json.dump(new_graphs, f)
         
-    print("len(new_graphs)", len(new_graphs))
         
-    # Swap attributes in graphs
-    adv_graphs = []
-    for graph in new_graphs:
-        adv_graph = deepcopy(graph)
-        adv_graph['objects'][0]['attributes'], adv_graph['objects'][1]['attributes'] = \
-            adv_graph['objects'][1]['attributes'], adv_graph['objects'][0]['attributes'] 
-        adv_graphs.append(adv_graph)
+    # # Swap attributes in graphs
+    # adv_graphs = []
+    # for graph in new_graphs:
+    #     adv_graph = deepcopy(graph)
+    #     adv_graph['objects'][0]['attributes'], adv_graph['objects'][1]['attributes'] = \
+    #         adv_graph['objects'][1]['attributes'], adv_graph['objects'][0]['attributes'] 
+    #     adv_graphs.append(adv_graph)
 
-    # Save adversarial graphs
-    with open("datasets/visual_genome/raw/realistic_adversarial_attributes_adv.json", 'w') as f:
-        json.dump(adv_graphs, f)
+    # # Save adversarial graphs
+    # with open("datasets/visual_genome/raw/realistic_adversarial_attributes_adv.json", 'w') as f:
+    #     json.dump(adv_graphs, f)
 
-if '__name__' == '__main__':
-    main()
+if __name__ == '__main__':
+    main(type="2")
