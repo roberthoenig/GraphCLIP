@@ -316,7 +316,7 @@ class VisualGenomeAdversarialAttrText(Dataset):
         self.captions_gt = []
         self.captions_adv = []
         self.img_paths = []
-        with open('datasets/visual_genome/raw/realistic_adversarial_attributes_gt_accepted.json', 'r') as f:
+        with open('datasets/visual_genome/raw/realistic_adversarial_attributes_gt_accepted_pruned.json', 'r') as f:
             data = json.load(f)
         img_id_to_path = dict()
         for dir in [Path(root)/"raw"/"VG_100K", Path(root)/"raw"/"VG_100K_2"]:
