@@ -87,3 +87,16 @@ def compute_accuracy_from_adversarial_features(img_features, features_gt, featur
         "accuracy": f"{acc:.2f}"
     }
     logging.info("Result: " + pprint.pformat(result))
+    
+# img_features: (n_samples, 2, emb_sz) 
+# features_gt: (n_samples, 2, emb_sz) 
+# features_adv: (n_samples, 2, emb_sz) 
+def compute_accuracy_from_adversarial_features2(img_features, features_gt, features_adv):
+    scores_gt = (img_features * features_gt[:,0,:]).sum(dim=-1) + (img_features * features_gt[:,1,:]).sum(dim=-1)
+    scores_adv = (img_features * features_adv[:,0,:]).sum(dim=-1) + (img_features * features_adv[:,1,:]).sum(dim=-1)
+    is_correct = scores_gt > scores_adv
+    acc = is_correct.float().mean()
+    result = {
+        "accuracy": f"{acc:.2f}"
+    }
+    logging.info("Result: " + pprint.pformat(result))

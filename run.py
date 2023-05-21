@@ -42,6 +42,10 @@ Run an experiment.
     elif config["type"] == "eval_adversarial":
         logging.info("Evaluating model adversarially...")
         model.eval_adversarial()
+    elif config["type"] == "eval_adversarial_attr":
+        assert config["model"] == "TextCLIP"
+        logging.info("Evaluating TextCLIP model adversarially for attributes...")
+        model.eval_adversarial_attr()
     else:
         raise Exception(f"Unkown experiment type {config['type']}")
 
