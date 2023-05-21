@@ -11,6 +11,7 @@ import os.path as osp
 import numpy as np
 import torch
 from torch_geometric.data import DataLoader
+from pathlib import Path
 
 def unzip_file(zip_path, target_dir):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
@@ -107,6 +108,16 @@ def add_master_node_with_incoming_edges(data):
     d_orig.update(d)
     data_with_master_node = Data.from_dict(d_orig)
     return data_with_master_node
+
+cached_img_enc = None
+def enc_img_fn(data, path):
+    global cached_img_enc
+    if cached_img_enc is None:
+        cached_img_enc = torch.load(path)
+        cached_img_enc = {int((Path(path).stem)
+): vec for (path, vec) in cached_img_enc.items()}
+    data.y = cached_img_enc[data.image_id.item()]
+    return data
 
 # !!! Assumes that each attribute has exactly ONE outgoing edge !!!
 def transfer_attributes(data):

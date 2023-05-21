@@ -1,7 +1,7 @@
 import torch
 from torch_geometric.data import InMemoryDataset, download_url
 from torch.utils.data import Dataset
-from utils.dataset_utils import add_master_node_with_bidirectional_edges, add_master_node_with_incoming_edges, process_adversarial_dataset, unzip_file
+from utils.dataset_utils import add_master_node_with_bidirectional_edges, add_master_node_with_incoming_edges, enc_img_fn, process_adversarial_dataset, unzip_file
 import os.path as osp
 import json
 from tqdm import tqdm
@@ -13,10 +13,8 @@ from pathlib import Path
 from scripts import create_adversarial_attributes_dataset
 
 # Embeds text with CLIP
-def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, metadata, coco_val_ids, use_long_rel_enc):
+def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, metadata, coco_val_ids, use_long_rel_enc, enc_img=True):
     # y: [1, num_img_features]
-    # TODO: normalize?
-    y = img_enc(image_id_to_path[d['image_id']])
     # x: [num_nodes, num_txt_features]
     id_to_idx = {}
     # TODO: deal with multiple object names?
@@ -65,13 +63,16 @@ def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, metadata, coco_val_
     data = Data(x=torch.cat([x, attrs]),
         edge_attr=torch.cat([edge_attr, attrs_edge_attr]),
         edge_index=torch.cat([edge_index, attrs_edge_index], dim=1),
-        y=y,
         obj_nodes=torch.arange(0, n_obj_nodes),
         attr_nodes=torch.arange(n_obj_nodes, n_obj_nodes + n_attrs),
         coco_id=torch.tensor([coco_id], dtype=torch.long),
         image_id=torch.tensor([image_id], dtype=torch.long),
         in_coco_val=torch.tensor([in_coco_val], dtype=torch.bool)
     )
+    if enc_img:
+        # TODO: normalize?
+        y = img_enc(image_id_to_path[d['image_id']])
+        data.y = y
     return data
 
 
@@ -118,19 +119,28 @@ def dict_to_pyg_graphs(d, img_enc, txt_enc, image_id_to_path, metadata, coco_val
     return datas
 
 class VisualGenome(InMemoryDataset):
-    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None, enc_cfg=None, n_samples="all", scene_graphs_filename="scene_graphs.json", use_long_rel_enc=None, one_sample_per_edge = False, dataset=None):
+    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None, enc_cfg=None, n_samples="all", scene_graphs_filename="scene_graphs.json", use_long_rel_enc=None, one_sample_per_edge = False, dataset=None, enc_img=True):
         self.enc_cfg = enc_cfg
         self.n_samples = n_samples
         self.scene_graphs_filename = scene_graphs_filename
         self.use_long_rel_enc = use_long_rel_enc
-        if transform == "add_master_node_with_bidirectional_edges":
-            transform_fn = add_master_node_with_bidirectional_edges
-        elif transform == "add_master_node_with_incoming_edges":
-            transform_fn = add_master_node_with_incoming_edges
-        elif transform is None:
-            transform_fn = lambda x: x
-        else:
-            raise Exception(f"Unknown transform {transform}.")
+        self.enc_img = enc_img
+        if not type(transform) == list:
+            transform = [transform]
+        cached_img_enc_path = None
+        def transform_fn(x):
+            for t in transform:
+                if t == "add_master_node_with_bidirectional_edges":
+                    x = add_master_node_with_bidirectional_edges(x)
+                elif t == "add_master_node_with_incoming_edges":
+                    x = add_master_node_with_incoming_edges(x)
+                elif t == "enc_img":
+                    x = enc_img_fn(x, cached_img_enc_path)
+                elif t is None:
+                    x = x
+                else:
+                    raise Exception(f"Unknown transform {transform}.")
+            return x
         if pre_transform == "add_master_node_with_bidirectional_edges":
             pre_transform_fn = add_master_node_with_bidirectional_edges
         elif pre_transform == "add_master_node_with_incoming_edges":
@@ -138,7 +148,7 @@ class VisualGenome(InMemoryDataset):
         elif pre_transform is None:
             pre_transform_fn = lambda x: x
         else:
-            raise Exception(f"Unknown tpre-ransform {pre_transform}.")
+            raise Exception(f"Unknown pre-transform {pre_transform}.")
         tokenizer = open_clip.get_tokenizer(model_name=self.enc_cfg["model_name"])
         def clip_embedding_txt_enc(txts):
            with torch.no_grad():
@@ -151,6 +161,7 @@ class VisualGenome(InMemoryDataset):
         self.one_sample_per_edge = one_sample_per_edge
         super().__init__(root, transform_fn, pre_transform_fn, pre_filter)
         self.data, self.slices = torch.load(self.processed_paths[0])
+        cached_img_enc_path = osp.join(self.processed_dir, f"{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_{self.n_samples}_img_enc_cache.pt")
 
     @property
     def raw_file_names(self):
@@ -161,7 +172,7 @@ class VisualGenome(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return [f"data_{self.scene_graphs_filename}_{self.n_samples}_{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_use_clip_latents={self.enc_cfg['use_clip_latents']}_use_long_rel_enc={self.use_long_rel_enc}_one_sample_per_edge={self.one_sample_per_edge}_coco_annotated_with_attributes_6.pt"]
+        return [f"data_{self.scene_graphs_filename}_{self.n_samples}_{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_use_clip_latents={self.enc_cfg['use_clip_latents']}_use_long_rel_enc={self.use_long_rel_enc}_one_sample_per_edge={self.one_sample_per_edge}_enc_img={self.enc_img}_coco_annotated_with_attributes_6.pt"]
 
     def download(self):
         # Download to `self.raw_dir`.
@@ -234,7 +245,7 @@ class VisualGenome(InMemoryDataset):
             data_list = [d for dd in data_lists for d in dd]
         else:
             metadatas = {i['image_id']: i for i in image_data_dict}
-            data_list = [dict_to_pyg_graph(d, img_enc_fn, txt_enc_fn, image_id_to_path, metadatas[d['image_id']], coco_val_ids, self.use_long_rel_enc)
+            data_list = [dict_to_pyg_graph(d, img_enc_fn, txt_enc_fn, image_id_to_path, metadatas[d['image_id']], coco_val_ids, self.use_long_rel_enc, enc_img=self.enc_img)
                         for d in tqdm(scene_graphs_dict)]
 
         if self.pre_filter is not None:
