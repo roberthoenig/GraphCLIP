@@ -291,8 +291,8 @@ class VisualGenomeAdversarial2(Dataset):
 
 class VisualGenomeAdversarialAttr(Dataset):
     def __init__(self, *args, **kwargs):
-        self.dataset_gt = VisualGenome(*args, **kwargs,  scene_graphs_filename="realistic_adversarial_attributes_gt_accepted_pruned.json")
-        self.dataset_adv = VisualGenome(*args, **kwargs, scene_graphs_filename="realistic_adversarial_attributes_adv_accepted_pruned.json")
+        self.dataset_gt = VisualGenome(*args, **kwargs,  scene_graphs_filename="realistic_adversarial_attributes_gt_accepted_pruned_and.json")
+        self.dataset_adv = VisualGenome(*args, **kwargs, scene_graphs_filename="realistic_adversarial_attributes_adv_accepted_pruned_and.json")
 
     def __len__(self):
         return len(self.dataset_gt)
