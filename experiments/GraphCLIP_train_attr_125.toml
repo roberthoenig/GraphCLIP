@@ -46,6 +46,6 @@ pretrained = "laion2b_s12b_b42k"
 use_clip_latents = false
 device = "cuda:0"
 [multitasks.dataset_filter_args]
-filters = ["remove_adv_dataset_samples", "remove_adv_attr_dataset_samples"] #
+filters = ["remove_adv_attr_dataset_samples"] #
 [multitasks.valset_filter_args]
 filters = []
