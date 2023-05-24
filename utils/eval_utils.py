@@ -78,7 +78,7 @@ def compute_ranking_metrics_from_features(img_features, cap_features, ks):
 # img_features: (n_samples, emb_sz) 
 # features_gt: (n_samples, emb_sz) 
 # features_adv: (n_samples, emb_sz) 
-def compute_accuracy_from_adversarial_features(img_features, features_gt, features_adv):
+def compute_accuracy_from_adversarial_features(img_features, features_gt, features_adv, log=True):
     scores_gt = (img_features * features_gt).sum(dim=-1)
     scores_adv = (img_features * features_adv).sum(dim=-1)
     is_correct = scores_gt > scores_adv
@@ -86,7 +86,10 @@ def compute_accuracy_from_adversarial_features(img_features, features_gt, featur
     result = {
         "accuracy": f"{acc:.2f}"
     }
-    logging.info("Result: " + pprint.pformat(result))
+    if log:
+        logging.info("Result: " + pprint.pformat(result))
+    else:
+        return acc
     
 # img_features: (n_samples, 2, emb_sz) 
 # features_gt: (n_samples, 2, emb_sz) 
@@ -99,4 +102,3 @@ def compute_accuracy_from_adversarial_features2(img_features, features_gt, featu
     result = {
         "accuracy": f"{acc:.2f}"
     }
-    logging.info("Result: " + pprint.pformat(result))

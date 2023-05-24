@@ -660,10 +660,12 @@ class GraphCLIP():
                 y_adv, dropout_mask = model(adv_data, exclude_from_dropout=exclude_from_dropout, return_dropout_mask=True, p_dropout=p_dropout)
                 y_pred = model(data, dropout_mask=dropout_mask, p_dropout=p_dropout)
                 loss = loss_fn(y_pred, y_adv, data.y, model.logit_scale)
+                acc = compute_accuracy_from_adversarial_features(data.y, y_pred.detach(), y_adv.detach(), log=False)
             else:
                 data = data.to(self.config["device"])
                 loss = loss_fn(model(data, p_dropout=p_dropout), data.y, model.logit_scale)
-            return loss
+                acc = -1
+            return loss, acc
 
         pbar_epochs = tqdm(range(n_epochs), position=0)
         smallest_val_losses = np.inf
@@ -671,6 +673,7 @@ class GraphCLIP():
             # Train
             model.train()
             train_losses = []
+            train_accs = []
             mov_avg_train_losses = 0
             pbar_train = tqdm(train_dloader, position=1, leave=False)
             for datas in pbar_train:
@@ -678,35 +681,40 @@ class GraphCLIP():
                 losses = []
                 total_loss = 0
                 for loss_fn, data, adv_transform, excl_from_dropout, weight, p_dropout in zip(loss_fns, datas, adv_transforms, excl_from_dropouts, weights, p_dropouts):
-                    loss = loss_from_data(loss_fn, data, adv_transform, excl_from_dropout, p_dropout)
+                    loss, acc = loss_from_data(loss_fn, data, adv_transform, excl_from_dropout, p_dropout)
                     total_loss += weight * loss
                     losses.append(loss)
                 total_loss.backward()
                 optimizer.step()
                 train_losses.append([l.item() for l in losses])
+                train_accs.append(acc)
                 mov_avg_train_losses = 0.9 * mov_avg_train_losses + 0.1 * torch.tensor(train_losses[-1])
                 pbar_train.set_postfix({'moving average train_loss': mov_avg_train_losses.tolist()})
             train_losses_mean = np.array(train_losses).mean(axis=0)
+            train_acc = np.mean(train_accs)
             losses = []
             # Validate
             model.eval()
             val_losses_mean = []
             for val_dloader, loss_fn, adv_transform in zip(val_dloaders, loss_fns, adv_transforms):
                 val_losses = []
+                val_accs = []
                 mov_avg_val_loss = 0
                 pbar_val = tqdm(val_dloader, position=1, leave=False)
                 for data in pbar_val:
                     with torch.no_grad():
-                        loss = loss_from_data(loss_fn, data, adv_transform, False, 0.0)
+                        loss, acc = loss_from_data(loss_fn, data, adv_transform, False, 0.0)
                         val_losses.append(loss.item())
+                        val_accs.append(acc)
                     mov_avg_val_loss = 0.9 * mov_avg_val_loss + 0.1 * loss.item()
                     pbar_train.set_postfix({'moving average val_loss': mov_avg_val_loss})
                 val_losses_mean.append(np.mean(val_losses))
+                val_acc = np.mean(val_accs)
             # Log
             def loss2str(losses):
                 return np.array2string(np.array(losses), precision=3)
             pbar_epochs.set_postfix({'train_losses': loss2str(train_losses_mean), 'val_loss': loss2str(val_losses_mean)})
-            logging.info(f"Epoch {epoch}, average train_loss: {loss2str(train_losses_mean)}, average val_loss: {loss2str(val_losses_mean)}")
+            logging.info(f"Epoch {epoch}, average train_loss: {loss2str(train_losses_mean)}, average val_loss: {loss2str(val_losses_mean)}, train accuracy: {loss2str(train_acc)}, val accuracy: {loss2str(val_acc)}")
             # Save Checkpoint
             cps = np.array(cps)
             if np.any(np.array(val_losses_mean) < np.minimum(smallest_val_losses, cps)):
