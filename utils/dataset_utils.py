@@ -144,7 +144,7 @@ def swap_attributes(data, replacement_prob):
         for attr_idx, obj_idx in zip(data.attr_nodes.tolist(), data.obj_nodes.tolist()):
             obj = tuple(data.x[obj_idx].tolist()) 
             if len(attrs_replacements_dict[obj]) == 0:
-                attrs_replacements_dict[obj] = np.random.choice(np.arange(len(attrs_replacements_dict[obj]['attrs'])), size=SZ2, p=attrs_replacements_dict[obj]["probs"]).tolist()
+                attrs_replacements_dict[obj] = np.random.choice(np.arange(len(attr_distr[obj]['attrs'])), size=SZ2, p=attrs_replacements_dict[obj]["probs"]).tolist()
             data.x[attr_idx] = attr_distr[obj]['attrs'][attrs_replacements_dict[obj].pop()]
     else:
         data.x[[data.attr_nodes[0].item(), data.attr_nodes[1].item()]] = data.x[[data.attr_nodes[1].item(), data.attr_nodes[0].item()]]
