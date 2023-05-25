@@ -21,7 +21,7 @@ def is_not_edgeless(data):
     return data.edge_index.shape[1] > 0      
 
 def in_mscoco_val(data):
-    return data.in_coco_val.item()
+    return data.in_coco_val
 
 def make_is_not_visualgenome_duplicate(vg_dupes):
     def is_not_visualgenome_duplicate(data):
@@ -39,19 +39,23 @@ def make_remove_adv_dataset_samples():
 def make_remove_adv_attr_dataset_samples():
     with open("datasets/visual_genome/raw/realistic_adversarial_attributes_gt_accepted_pruned.json", "r") as f:
         samples = json.load(f)
-        ids = [int(s['image_id']) for s in samples]
+        ids = torch.tensor([int(s['image_id']) for s in samples])
     def remove_adv_dataset_samples(data):
-        return not (data.image_id.item() in ids)
+        return ~torch.isin(data.image_id, ids)
     return remove_adv_dataset_samples
 
 def dataset_filter(dataset, filters=[]):
+    if len(filters) > 1:
+        raise Exception()
+    if len(filters) == 0:
+        return dataset
     filter_fns = []
     for filter in filters:
         # Filter
         if filter == "remove_edgeless_graphs":
             filter_fn = is_not_edgeless
         elif filter == "remove_mscoco_val":
-            filter_fn = lambda x: not in_mscoco_val(x)
+            filter_fn = lambda x: ~in_mscoco_val(x)
         elif filter == "keep_mscoco_val":
             filter_fn = in_mscoco_val
         elif filter == "remove_visualgenome_duplicates":
@@ -68,7 +72,11 @@ def dataset_filter(dataset, filters=[]):
             raise Exception(f"Unknown filter {filter}")
         filter_fns.append(filter_fn)
     logging.info(f"Filtering dataset...")
-    filtered_indexes = [i for i in tqdm(range(len(dataset))) if all(f(dataset[i]) for f in filter_fns)]
+    filtered_indexes = []
+    f = filter_fns[0]
+    BATCH_SZ = 10_000
+    for idx, batch in tqdm(enumerate(DataLoader(dataset, batch_size=BATCH_SZ, shuffle=False))):
+        filtered_indexes += torch.arange(idx * BATCH_SZ, min((idx+1)*BATCH_SZ, len(dataset)))[f(batch)].tolist()
     dataset = data.Subset(dataset, filtered_indexes)
     return dataset
 
