@@ -89,7 +89,7 @@ def compute_accuracy_from_adversarial_features(img_features, features_gt, featur
     if log:
         logging.info("Result: " + pprint.pformat(result))
     else:
-        return acc
+        return acc.item()
     
 # img_features: (n_samples, 2, emb_sz) 
 # features_gt: (n_samples, 2, emb_sz) 
