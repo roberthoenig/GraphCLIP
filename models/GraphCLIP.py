@@ -716,11 +716,16 @@ class GraphCLIP():
                 y_pred = model(data, dropout_mask=dropout_mask, p_dropout=p_dropout)
                 loss = loss_fn(y_pred, y_adv, data.y, model.logit_scale)
                 acc = compute_accuracy_from_adversarial_features(data.y, y_pred.detach(), y_adv.detach(), log=False)
+                mag = y_pred.norm().item()
+                adv_mag = y_adv.norm().item()
             else:
                 data = data.to(self.config["device"])
-                loss = loss_fn(model(data, p_dropout=p_dropout), data.y, model.logit_scale)
+                y_pred = model(data, p_dropout=p_dropout)
+                loss = loss_fn(y_pred, data.y, model.logit_scale)
                 acc = -1
-            return loss, acc
+                mag = y_pred.norm().item()
+                adv_mag = -1
+            return loss, acc, mag, adv_mag
 
         pbar_epochs = tqdm(range(n_epochs), position=0)
         smallest_val_losses = np.inf
@@ -729,6 +734,8 @@ class GraphCLIP():
             model.train()
             train_losses = []
             train_accs = []
+            train_mags = []
+            train_adv_mags = []
             mov_avg_train_losses = 0
             pbar_train = tqdm(train_dloader, position=1, leave=False)
             for datas in pbar_train:
@@ -736,17 +743,21 @@ class GraphCLIP():
                 losses = []
                 total_loss = 0
                 for loss_fn, data, adv_transform, excl_from_dropout, weight, p_dropout in zip(loss_fns, datas, adv_transforms, excl_from_dropouts, weights, p_dropouts):
-                    loss, acc = loss_from_data(loss_fn, data, adv_transform, excl_from_dropout, p_dropout)
+                    loss, acc, mag, adv_mag = loss_from_data(loss_fn, data, adv_transform, excl_from_dropout, p_dropout)
                     total_loss += weight * loss
                     losses.append(loss)
                 total_loss.backward()
                 optimizer.step()
                 train_losses.append([l.item() for l in losses])
                 train_accs.append(acc)
+                train_mags.append(mag)
+                train_adv_mags.append(adv_mag)
                 mov_avg_train_losses = 0.9 * mov_avg_train_losses + 0.1 * torch.tensor(train_losses[-1])
                 pbar_train.set_postfix({'moving average train_loss': mov_avg_train_losses.tolist()})
             train_losses_mean = np.array(train_losses).mean(axis=0)
             train_acc = np.mean(train_accs)
+            train_mag = np.mean(train_mags)
+            train_adv_mag = np.mean(train_adv_mags)
             losses = []
             # Validate
             model.eval()
@@ -754,22 +765,28 @@ class GraphCLIP():
             for val_dloader, loss_fn, adv_transform in zip(val_dloaders, loss_fns, adv_transforms):
                 val_losses = []
                 val_accs = []
+                val_mags = []
+                val_adv_mags = []
                 mov_avg_val_loss = 0
                 pbar_val = tqdm(val_dloader, position=1, leave=False)
                 for data in pbar_val:
                     with torch.no_grad():
-                        loss, acc = loss_from_data(loss_fn, data, adv_transform, False, 0.0)
+                        loss, acc, mag, adv_mag = loss_from_data(loss_fn, data, adv_transform, False, 0.0)
                         val_losses.append(loss.item())
                         val_accs.append(acc)
+                        val_mags.append(mag)
+                        val_adv_mags.append(adv_mag)
                     mov_avg_val_loss = 0.9 * mov_avg_val_loss + 0.1 * loss.item()
                     pbar_train.set_postfix({'moving average val_loss': mov_avg_val_loss})
                 val_losses_mean.append(np.mean(val_losses))
                 val_acc = np.mean(val_accs)
+                val_mag = np.mean(val_mags)
+                val_adv_mag = np.mean(val_adv_mags)
             # Log
             def loss2str(losses):
                 return np.array2string(np.array(losses), precision=3)
             pbar_epochs.set_postfix({'train_losses': loss2str(train_losses_mean), 'val_loss': loss2str(val_losses_mean)})
-            logging.info(f"Epoch {epoch}, average train_loss: {loss2str(train_losses_mean)}, average val_loss: {loss2str(val_losses_mean)}, train accuracy: {loss2str(train_acc)}, val accuracy: {loss2str(val_acc)}")
+            logging.info(f"Epoch {epoch}, average train_loss: {loss2str(train_losses_mean)}, average val_loss: {loss2str(val_losses_mean)}, train accuracy: {loss2str(train_acc)}, val accuracy: {loss2str(val_acc)}, train mag: {loss2str(train_mag)}, val mag: {loss2str(val_mag)}, train adv mag: {loss2str(train_adv_mag)}, val adv mag: {loss2str(val_adv_mag)}")
             # Save Checkpoint
             cps = np.array(cps)
             if np.any(np.array(val_losses_mean) < np.minimum(smallest_val_losses, cps)):
