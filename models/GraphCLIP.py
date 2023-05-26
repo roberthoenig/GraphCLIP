@@ -542,7 +542,7 @@ class GNN15(torch.nn.Module):
     def forward(self, data, exclude_from_dropout=None, return_dropout_mask=False, dropout_mask=None, p_dropout=None):
         data = tokens_to_embeddings_batched(data, self.embedding)
         x, edge_index, edge_attr, batch = data.x, data.edge_index, data.edge_attr, data.batch
-        x += torch.randn(x.shape, device=x.device()) * (self.noise if self.training else 0.0)
+        x += torch.randn(x.shape, device=x.device) * (self.noise if self.training else 0.0)
         edge_index, edge_mask, node_mask = dropout_node_keep_master_nodes(edge_index=edge_index,
                                                                   batch=batch, training=self.training,
                                                                   p=p_dropout, exclude_from_dropout=exclude_from_dropout,
