@@ -7,7 +7,10 @@ from models.TextCLIP import TextCLIP
 from models.GraphCLIP import GraphCLIP
 from utils.experiment_utils import init_logger, prep_experiment_dir, load_experiment_config, init_seeds
 
+import torch.multiprocessing
+
 def main() -> None:
+    torch.multiprocessing.set_sharing_strategy('file_system')
     parser = argparse.ArgumentParser(description=
 """
 Run an experiment.

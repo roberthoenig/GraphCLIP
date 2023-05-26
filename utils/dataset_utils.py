@@ -75,7 +75,7 @@ def dataset_filter(dataset, filters=[]):
     filtered_indexes = []
     f = filter_fns[0]
     BATCH_SZ = 10_000
-    for idx, batch in tqdm(enumerate(DataLoader(dataset, batch_size=BATCH_SZ, shuffle=False))):
+    for idx, batch in tqdm(enumerate(DataLoader(dataset, batch_size=BATCH_SZ, shuffle=False, num_workers=16))):
         filtered_indexes += torch.arange(idx * BATCH_SZ, min((idx+1)*BATCH_SZ, len(dataset)))[f(batch)].tolist()
     dataset = data.Subset(dataset, filtered_indexes)
     return dataset
