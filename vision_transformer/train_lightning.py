@@ -13,31 +13,33 @@ image_dir = "/local/home/jthomm/GraphCLIP/datasets/visual_genome/raw/VG/"
 metadata_path = "/local/home/jthomm/GraphCLIP/datasets/visual_genome/processed/"
 run_logs_dir = "/local/home/jthomm/GraphCLIP/experiments/"
 
-num_epochs = 15
+num_epochs = 30
 clip_model_type =  'ViT-L-14' # 'ViT-L-14' #'ViT-g-14' #'ViT-H-14' #'ViT-B/32'
 clip_pretrained_dataset = 'laion2b_s32b_b82k' # 'laion2b_s32b_b82k' # 'laion2b_s34b_b88k'  # 'laion2b_s32b_b79k' # 'laion400m_e32'
 shallow = True
-debug_mode = True # turn this on such that a tiny dataset is loaded such that you can test the code
+debug_mode = False # turn this on such that a tiny dataset is loaded such that you can test the code
 input_mode = 'text_embeddings' # 'bounding_boxes'
 description = f"""
-    ViT_RelClassifier with 100 epochs, 200 hidden size, and 64 batch size\n 
+    ViT_RelClassifier with 100 epochs, 200 hidden size, and 128 batch size\n 
     clip model {clip_model_type}, clip pretrained dataset {clip_pretrained_dataset}
-    the model has three heads: rel, obj_1, obj_2
-    the training rates are: ViT: 1e-6, rest: 1e-4
     Shallow CLassification Heads: {shallow}
     No Weighted Loss for the Rel Head and the Obj Heads
     Attribute Loss is enabled and the dataset is implemented with attributes
     Debug Mode: {debug_mode} (if true, this is only a tiny dataset for debugging purposes)
-    Batch size: 64
+    Batch size: 128
     The adversarial dataset is removed from training and validation
     The data input mode is: {input_mode}
-    Attribute loss is ignored for 0 attributes and the weighting is fixed.
+    Attribute loss is ignored for 0 attributes.
+    Attribute loss weighting is turned OFF. (attention: attribute loss multiplier should be set accordingly)
+    Learning rates increased to 5e-4 and 5e-6
+    Object Heads are on, with loss
     """
 ############################################################################
 
 ### setup CUDA
 torch.set_float32_matmul_precision('medium') # lightning says i should do this, either 'medium' or 'high'
 free_devices = get_all_free_gpus_ids()
+free_devices = [1,4,5,6]
 os.environ["CUDA_VISIBLE_DEVICES"] = ",".join([str(i) for i in free_devices])
 print(f"Making CUDA devices visible: {free_devices}")
 
@@ -83,12 +85,12 @@ data_module = CleanedVisualGenomeDataModule(
 )
 
 ### Weigthed Loss
-model.register_occurence_probabilities(
-    None,
-    None,
-    data_module.data[0].dataset.attr_occurence_probabilities,
-    logger=wandb_logger,
-    )
+# model.register_occurence_probabilities(
+#     None,
+#     None,
+#     data_module.data[0].dataset.attr_occurence_probabilities,
+#     logger=wandb_logger,
+#     )
 
 ### Model Checkpointing
 checkpoint_callback = pl.callbacks.ModelCheckpoint(
@@ -98,6 +100,12 @@ checkpoint_callback = pl.callbacks.ModelCheckpoint(
     save_top_k=1,
     mode='max',
 )
+checkpoint_callback_every_epoch = pl.callbacks.ModelCheckpoint(
+    dirpath=run_folder,
+    filename='model_epoch',
+    every_n_epochs=1,
+    save_top_k=-1,
+)
 
 
 # Create the Trainer
@@ -105,12 +113,12 @@ trainer = pl.Trainer(
     max_epochs=num_epochs,
     logger=wandb_logger,
     accelerator="gpu" if torch.cuda.is_available() else 'cpu',
-    devices = min(1, len(free_devices)) if torch.cuda.is_available() else 1,
-    callbacks=[checkpoint_callback],
+    devices = 4, # min(4, len(free_devices)) if torch.cuda.is_available() else 1,
+    callbacks=[checkpoint_callback, checkpoint_callback_every_epoch],
     log_every_n_steps=1,
     # strategy='ddp_find_unused_parameters_true',
     # strategy="ddp", # if this is enabled, you ahve to set ddp_find_unused_parameters to true or modify the model, because sometimes a classificaiton head is not used, all masked out
-    accumulate_grad_batches=2,
+    accumulate_grad_batches=1,
 )
 
 # Train the model

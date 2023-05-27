@@ -154,7 +154,13 @@ def convert_all_adversarially_realistic(g, relationship_labels):
     return adv_perturbations
     
 
-def get_realistic_graphs_dataset(version='v1'):
+def get_realistic_graphs_dataset(version, mode):
+    if mode=='rel':
+        return get_realistic_graphs_dataset_rel(version)
+    elif mode=='attr':
+        return get_realistic_graphs_dataset_attr(version)
+
+def get_realistic_graphs_dataset_rel(version):
     metadata_path = utils.LOCAL_DATA_PATH +  "processed/"
     if version == 'v1':
         curated_adversarialt = torch.load(metadata_path + "ra_selections_curated_adversarial.pt") # a dict with image_id as key and a graph and the adversarial perturbations as value
@@ -173,3 +179,44 @@ def get_realistic_graphs_dataset(version='v1'):
             'adv_predicate': adv_predicate
         })
     return dataset
+
+def get_realistic_graphs_dataset_attr(version):
+    import networkx as nx
+    import json
+    path = utils.LOCAL_DATA_PATH + 'raw/realistic_adversarial_attributes_gt_accepted_pruned.json'
+    with open(path, 'r') as f:
+        data = json.load(f)
+        print(len(data))
+    graphs = []
+    graphs_adv = []
+    for sample in data:
+        graph = nx.DiGraph()
+        graph.image_id = sample['image_id']
+        obj1_name = sample['objects'][0]['names'][0]
+        obj1_id = sample['objects'][0]['object_id']
+        obj2_name = sample['objects'][1]['names'][0]
+        obj2_id = sample['objects'][1]['object_id']
+        obj1_attrs = sample['objects'][0]['attributes']
+        obj2_attrs = sample['objects'][1]['attributes']
+        # assert obj1_name in rige.FILTERED_OBJECTS, f"obj1_attrs: {obj1_attrs}"
+        # assert obj2_name in rige.FILTERED_OBJECTS, f"obj2_attrs: {obj2_attrs}"
+        # for attr in obj1_attrs:
+        #     assert attr in rige.FILTERED_ATTRIBUTES, f"obj1_attrs: {obj1_attrs}"
+        # for attr in obj2_attrs:
+        #     assert attr in rige.FILTERED_ATTRIBUTES, f"obj2_attrs: {obj2_attrs}"
+        # add nodes with attributes and labels
+        graph.labels = {}
+        graph.add_node(obj1_id, attributes=obj1_attrs, name=obj1_name)
+        graph.labels[obj1_id] = obj1_name
+        graph.add_node(obj2_id, attributes=obj2_attrs, name=obj2_name)
+        graph.labels[obj2_id] = obj2_name
+        graphs.append(graph)
+        graph_adv = utils.copy_graph(graph)
+        [n1,n2] = list(graph_adv.nodes)[0:2]
+        graph_adv.nodes[n1]['attributes'], graph_adv.nodes[n2]['attributes'] = graph_adv.nodes[n2]['attributes'], graph_adv.nodes[n1]['attributes']
+        graphs_adv.append(graph_adv)
+
+    dataset = [{'original_graph': g, 'adv_graph': g_adv} for g, g_adv in zip(graphs, graphs_adv)]
+    return dataset
+
+

@@ -11,8 +11,9 @@ from datasets.VG_graphs import get_filtered_relationships, get_filtered_objects,
 import random
 
 class CustomImageDataset(Dataset):
-    def __init__(self, image_dir, id_edge_graph_dict, preprocess_func, mode, compute_occurence_probabilities=True):
+    def __init__(self, image_dir, id_edge_graph_dict, preprocess_func, mode, compute_occurence_probabilities=True, transform=None):
         self.mode = mode
+        self.transform = transform
         self.image_dir = image_dir
         self.id_edge_graph_dict = id_edge_graph_dict
         self.preprocess_func = preprocess_func
@@ -90,6 +91,8 @@ class CustomImageDataset(Dataset):
     def getitem_from_id_edge(self, image_id, edge, mode='bounding_boxes'):
         img_path = os.path.join(self.image_dir, f"{image_id}.jpg")
         image = Image.open(img_path).convert("RGB")
+        if self.transform:
+            image = self.transform(image)
 
         g = self.id_edge_graph_dict[(image_id, edge)]
         if mode == 'bounding_boxes':
@@ -116,24 +119,45 @@ class CustomImageDataset(Dataset):
         # print("obj1_label", obj1_label, "obj2_label", obj2_label, "obj1_label.shape", obj1_label.shape, "obj2_label.shape", obj2_label.shape)
 
         # try:
-        positive_attr_classes = [self.attr_classes[attr] for attr in g.nodes[edge[0]]['attributes']]
-        if len(positive_attr_classes) == 0:
-            attr_mask = torch.tensor(0)
+        positive_attr1_classes = [self.attr_classes[attr] for attr in g.nodes[edge[0]]['attributes']]
+        if len(positive_attr1_classes) == 0:
+            attr1_mask = torch.tensor(0)
         else:
-            attr_mask = torch.tensor(1)
-        attr_label = torch.zeros(len(self.attr_classes))
-        attr_label[positive_attr_classes] = 1
+            attr1_mask = torch.tensor(1)
+        attr1_label = torch.zeros(len(self.attr_classes))
+        attr1_label[positive_attr1_classes] = 1
+
+        positive_attr2_classes = [self.attr_classes[attr] for attr in g.nodes[edge[1]]['attributes']]
+        if len(positive_attr2_classes) == 0:
+            attr2_mask = torch.tensor(0)
+        else:
+            attr2_mask = torch.tensor(1)
+        attr2_label = torch.zeros(len(self.attr_classes))
+        attr2_label[positive_attr2_classes] = 1
+        
         # except:
         #     attr_mask = torch.tensor(0)
         #     attr_label = torch.zeros(len(self.attr_classes))
 
         # print('image', image.shape, 'bounding_boxes', bounding_boxes.shape, 'rel_label', rel_label.shape, 'obj1_label', obj1_label.shape, 'obj2_label', obj2_label.shape, 'attr_label', attr_label.shape, 'rel_mask', rel_mask.shape)
-        return image, bounding_boxes if mode == 'bounding_boxes' else full_text_clip_embd, rel_label, obj1_label, obj2_label, attr_label, rel_mask, attr_mask
+
+        return (
+            image, 
+            bounding_boxes if mode == 'bounding_boxes' else full_text_clip_embd, 
+            rel_label, 
+            obj1_label, obj2_label, 
+            attr1_label, attr2_label,
+            rel_mask, 
+            attr1_mask, attr2_mask
+        )
 
 
-def filter_out_adversarial_dataset(filtered_graphs):
-    adv_dataset = get_realistic_graphs_dataset()
-    image_ids = set([d['original_graph'].image_id for d in adv_dataset])
+def filter_out_adversarial_datasets(filtered_graphs):
+    adv_dataset_rel = get_realistic_graphs_dataset('v2', mode = 'rel')
+    image_ids_rel = set([d['original_graph'].image_id for d in adv_dataset_rel])
+    adv_dataset_attr = get_realistic_graphs_dataset('v1', mode = 'attr')
+    image_ids_attr = set([d['original_graph'].image_id for d in adv_dataset_attr])
+    image_ids = image_ids_rel.union(image_ids_attr)
     filtered_graphs = [g for g in filtered_graphs if g.image_id not in image_ids]
     return filtered_graphs
 
@@ -153,7 +177,7 @@ def get_dataloader(
         filtered_graphs = torch.load(filtered_graphs_path + "filtered_graphs_test_small.pt") # much faster to load
     else:
         filtered_graphs = torch.load(filtered_graphs_path + "filtered_graphs.pt")
-    filtered_graphs = filter_out_adversarial_dataset(filtered_graphs)
+    filtered_graphs = filter_out_adversarial_datasets(filtered_graphs)
     train_size = int(0.8 * len(filtered_graphs))
     filtered_graphs_train, filtered_graphs_val = torch.utils.data.random_split(filtered_graphs, [train_size, len(filtered_graphs) - train_size], generator=torch.Generator().manual_seed(42032))
     print("Done loading filtered graphs.")
@@ -185,8 +209,9 @@ def get_dataloader(
     subset = random.sample(list(id_node_graph_dict_val.keys()), len(id_edge_graph_dict_val)//4)
     for k in subset:
         id_edge_graph_dict_val[k] = id_node_graph_dict_val[k]
-    dataset_train = CustomImageDataset(image_dir, id_edge_graph_dict_train, preprocess_func, mode=mode)
-    dataset_val = CustomImageDataset(image_dir, id_edge_graph_dict_val, preprocess_func, mode=mode)
+    transform = transforms.RandAugment(num_ops=2, magnitude=9)
+    dataset_train = CustomImageDataset(image_dir, id_edge_graph_dict_train, preprocess_func, mode=mode, transform=transform)
+    dataset_val = CustomImageDataset(image_dir, id_edge_graph_dict_val, preprocess_func, mode=mode, transform=transform)
     dataloader_train = DataLoader(dataset_train, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle)
     dataloader_val = DataLoader(dataset_val, batch_size=batch_size, num_workers=num_workers, shuffle=False)
 
@@ -199,7 +224,7 @@ def get_realistic_graphs_dataset_ViT_relationships(
         mode='bounding_boxes',
         version='v1'
 ):
-    dataset = get_realistic_graphs_dataset(version=version)
+    dataset = get_realistic_graphs_dataset(version=version, mode='rel')
     id_edge_graph_dict_test_orig = {
         (d['original_graph'].image_id, d['changed_edge']
         ): d['original_graph']
@@ -214,37 +239,37 @@ def get_realistic_graphs_dataset_ViT_relationships(
     dataset_test_adv = CustomImageDataset(image_dir, id_edge_graph_dict_test_adv, preprocess_func, mode=mode, compute_occurence_probabilities=False)
     return dataset_test_orig, dataset_test_adv, dataset
 
-def get_realistic_graphs_dataset_ViT(
-        preprocess_func,
-        image_dir="/local/home/stuff/visual-genome/VG/",
-        mode='bounding_boxes',
-        version='v1',
-        type = 'relationships'
-):
-    if type=='relationships':
-        return get_realistic_graphs_dataset_ViT_relationships(preprocess_func, image_dir, mode, version)
-    elif type=='objects':
-        return get_realistic_graphs_dataset_ViT_attributes(preprocess_func, image_dir, mode, version)
-    else:
-        raise ValueError(f'Unknown type {type}')
+# def get_realistic_graphs_dataset_ViT(
+#         preprocess_func,
+#         image_dir="/local/home/stuff/visual-genome/VG/",
+#         mode='bounding_boxes',
+#         version='v1',
+#         type = 'relationships'
+# ):
+#     if type=='relationships':
+#         return get_realistic_graphs_dataset_ViT_relationships(preprocess_func, image_dir, mode, version)
+#     elif type=='objects':
+#         return get_realistic_graphs_dataset_ViT_attributes(preprocess_func, image_dir, mode, version)
+#     else:
+#         raise ValueError(f'Unknown type {type}')
     
-def get_realistic_graphs_dataset_ViT_attributes(
-        preprocess_func,
-        image_dir="/local/home/stuff/visual-genome/VG/",
-        mode='bounding_boxes',
-        version='v1'
-):
-    dataset = get_realistic_graphs_dataset(version=version)
-    id_node_graph_dict_test_orig = {
-        (d['original_graph'].image_id, (n,n)
-        ): d['original_graph']
-        for d in dataset
-    }
-    id_node_graph_dict_test_adv = {
-        (d['adv_graph'].image_id, (n,n)
-        ): d['adv_graph']
-        for d in dataset
-    }
-    dataset_test_orig = CustomImageDataset(image_dir, id_node_graph_dict_test_orig, preprocess_func, mode=mode, compute_occurence_probabilities=False)
-    dataset_test_adv = CustomImageDataset(image_dir, id_node_graph_dict_test_adv, preprocess_func, mode=mode, compute_occurence_probabilities=False)
-    return dataset_test_orig, dataset_test_adv, dataset
+# def get_realistic_graphs_dataset_ViT_attributes(
+#         preprocess_func,
+#         image_dir="/local/home/stuff/visual-genome/VG/",
+#         mode='bounding_boxes',
+#         version='v1'
+# ):
+#     dataset = get_realistic_graphs_dataset(version=version, mode='attr')
+#     id_node_graph_dict_test_orig = {
+#         (d['original_graph'].image_id, (n,n)
+#         ): d['original_graph']
+#         for d in dataset
+#     }
+#     id_node_graph_dict_test_adv = {
+#         (d['adv_graph'].image_id, (n,n)
+#         ): d['adv_graph']
+#         for d in dataset
+#     }
+#     dataset_test_orig = CustomImageDataset(image_dir, id_node_graph_dict_test_orig, preprocess_func, mode=mode, compute_occurence_probabilities=False)
+#     dataset_test_adv = CustomImageDataset(image_dir, id_node_graph_dict_test_adv, preprocess_func, mode=mode, compute_occurence_probabilities=False)
+#     return dataset_test_orig, dataset_test_adv, dataset
