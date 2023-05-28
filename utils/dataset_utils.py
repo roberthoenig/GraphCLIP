@@ -17,8 +17,10 @@ def unzip_file(zip_path, target_dir):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall(target_dir)
 
-def is_not_edgeless(data):
-    return data.edge_index.shape[1] > 0      
+def is_not_edgeless(batch):
+    data_list = batch.to_data_list()
+    result = torch.tensor([data.edge_index.shape[1] > 0 for data in data_list])
+    return result    
 
 def in_mscoco_val(data):
     return data.in_coco_val

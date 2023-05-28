@@ -96,6 +96,6 @@ pretrained = "laion2b_s12b_b42k"
 use_clip_latents = false
 device = "cuda:0"
 [multitasks.dataset_filter_args]
-filters = []
+filters = ["remove_edgeless_graphs"]
 [multitasks.valset_filter_args]
 filters = []
