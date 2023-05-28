@@ -168,7 +168,8 @@ class VisualGenome(InMemoryDataset):
         return ['scene_graphs.json.zip', 'images.zip', 'images2.zip', 'image_data.json.zip', 'annotations_trainval2017.zip', 'realistic_adversarial_samples.json',
         'realistic_adversarial_samples2.json',
         'realistic_adversarial_attributes_gt_1.json',
-        'realistic_adversarial_attributes_gt_2.json',]
+        'realistic_adversarial_attributes_gt_2.json',
+        'realistic_adversarial_attributes_gt_3.json',]
 
     @property
     def processed_file_names(self):
@@ -190,6 +191,7 @@ class VisualGenome(InMemoryDataset):
         download_and_unzip_if_not_exist("http://images.cocodataset.org/annotations/annotations_trainval2017.zip", 4)
         create_adversarial_attributes_dataset.main(type="1")
         create_adversarial_attributes_dataset.main(type="2")
+        create_adversarial_attributes_dataset.main(type="3")
 
     def process(self):
         logging.info("Processing adversarial dataset...")

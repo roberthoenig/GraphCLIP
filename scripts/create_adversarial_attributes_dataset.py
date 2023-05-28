@@ -41,6 +41,11 @@ def main(type):
         MIN_AREA = 0.00
         STRICT_UNIQUENESS = False
         USE_AND_RELATIONSHIP = True
+    elif type == "3":
+        MIN_AREA = 0.00
+        STRICT_UNIQUENESS = False
+        USE_AND_RELATIONSHIP = True
+        ONLY_REALISTIC_SWAPS = True
         
     # Load graphs and image descriptions
     print(f"Loading {SCENE_GRAPHS_PATH}")
@@ -170,4 +175,4 @@ def main(type):
     #     json.dump(adv_graphs, f)
 
 if __name__ == '__main__':
-    main(type="2")
+    main(type="3")
