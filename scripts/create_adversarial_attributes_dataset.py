@@ -37,10 +37,12 @@ def main(type):
         MIN_AREA = 0.05
         STRICT_UNIQUENESS = True
         USE_AND_RELATIONSHIP = False
+        ONLY_REALISTIC_SWAPS = False
     elif type == "2":
         MIN_AREA = 0.00
         STRICT_UNIQUENESS = False
         USE_AND_RELATIONSHIP = True
+        ONLY_REALISTIC_SWAPS = False
     elif type == "3":
         MIN_AREA = 0.00
         STRICT_UNIQUENESS = False
