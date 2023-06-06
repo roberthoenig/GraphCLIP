@@ -51,8 +51,6 @@ def make_remove_adv_attr_dataset_samples():
     return remove_adv_dataset_samples
 
 def dataset_filter(dataset, filters=[]):
-    if len(filters) > 1:
-        raise Exception()
     if len(filters) == 0:
         return dataset
     filter_fns = []
@@ -78,8 +76,12 @@ def dataset_filter(dataset, filters=[]):
             raise Exception(f"Unknown filter {filter}")
         filter_fns.append(filter_fn)
     logging.info(f"Filtering dataset...")
+    def f(batch):
+        mask = torch.tensor([True])
+        for filter_fn in filter_fns:
+            mask &= filter_fn(batch)
+        return mask
     filtered_indexes = []
-    f = filter_fns[0]
     BATCH_SZ = 10_000
     for idx, batch in tqdm(enumerate(DataLoader(dataset, batch_size=BATCH_SZ, shuffle=False, num_workers=16))):
         filtered_indexes += torch.arange(idx * BATCH_SZ, min((idx+1)*BATCH_SZ, len(dataset)))[f(batch)].tolist()
