@@ -27,7 +27,11 @@ def in_mscoco_val(data):
 
 def make_is_not_visualgenome_duplicate(vg_dupes):
     def is_not_visualgenome_duplicate(data):
-        return data['image_id'].item() == vg_dupes[str(data['coco_id'].item())][0]
+        out = []
+        for img_id in data.image_id:
+            b = (img_id.item() == vg_dupes[str(data['coco_id'].item())][0])
+            out.append(b)
+        return torch.tensor(out)
     return is_not_visualgenome_duplicate
 
 def make_remove_adv_dataset_samples():
