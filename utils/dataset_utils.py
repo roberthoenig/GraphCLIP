@@ -79,7 +79,7 @@ def dataset_filter(dataset, filters=[]):
     def f(batch):
         mask = torch.tensor([True])
         for filter_fn in filter_fns:
-            mask &= filter_fn(batch)
+            mask = mask & filter_fn(batch)
         return mask
     filtered_indexes = []
     BATCH_SZ = 10_000
