@@ -1,12 +1,15 @@
 from typing import Any
+
+from .graph_clip.data_utils import add_master_node_with_bidirectional_edges, dict_to_pyg_graph, networkx_to_dict
 from .vision_transformer.open_clip.jt_ViT_RelClassifier_lightning import ViT_RelClassifier
 from .vision_transformer.jt_training import get_free_gpu
 import os
 from .download_weights import download_weights
-from . import utils
 import torch
-from PIL import Image
-from .vision_transformer import open_clip
+import logging
+from tqdm import tqdm
+import open_clip
+from torch_geometric.data import Batch
 
 class Evaluator:
     def __init__(self, evaluator_name, device='auto'):
@@ -23,12 +26,18 @@ class Evaluator:
             self._evaluator = ViTBaseLargeEvaluator(device=self.device, model_weights_path=model_weights_path, size='base')
         elif self.evaluator_name == 'ViT-L/14':
             self._evaluator = ViTBaseLargeEvaluator(device=self.device, model_weights_path=model_weights_path, size='large')
+        elif self.evaluator_name == 'GraphCLIP':
+            self._evaluator = GraphCLIPEvaluator(device=self.device, model_weights_path=model_weights_path, **GraphCLIP_config_1)
 
     def _get_weights_name(evaluator_name):
         if evaluator_name == 'ViT-B/32':
             return 'ViT-Base_Text_Emb_Hockey_Fighter.ckpt'     
         elif evaluator_name == 'ViT-L/14':
             return 'ViT-Large_Text_Emb_Light_Sun.ckpt'   
+        elif evaluator_name == 'GraphCLIP':
+            return 'GraphCLIP.ckpt'   
+        else:
+            raise Exception(f"Unknown evaluator {evaluator_name}.")
 
     def __call__(self,images, graphs):
         score = self._evaluator(images, graphs)
@@ -117,6 +126,85 @@ class ViTBaseLargeEvaluator:
                 attr_confidences.append('noattributes')
         return {'rel_scores': rel_confidences, 'attr_scores': attr_confidences}
 
+GraphCLIP_config_1 = {
+    'CLIP_cfg': {
+        'model_name': "ViT-g-14",
+        'pretrained': "laion2b_s12b_b42k",
+    },
+    'normalize': False,
+    'use_long_rel_enc': False,
+    'transform': "add_master_node_with_bidirectional_edges"
+}
+class GraphCLIPEvaluator:
+    def __init__(self, device, model_weights_path, CLIP_cfg, normalize, use_long_rel_enc, transform):
+        self.device = device
+        self.normalize = normalize
+        self.model_weights_path = model_weights_path
+        self.tokenizer = open_clip.get_tokenizer(model_name=CLIP_cfg["model_name"])
+        self.img_model, _, self.img_preprocess = open_clip.create_model_and_transforms(model_name=CLIP_cfg["model_name"], pretrained=CLIP_cfg["pretrained"], device=self.device)
+        self.graph_model = self.load_graph_model()
+        self.use_long_rel_enc = use_long_rel_enc
+        self.transform = transform
+
+    def load_graph_model(self):
+        model = torch.load(self.model_weights_path)
+        model.to(self.device)
+        model.eval()
+        return model
+    
+    def _txt_enc(self, txts):
+        with torch.no_grad():
+            tokens = self.tokenizer(txts)
+            tokens[tokens == 49407] = 0
+            tokens = tokens[:, 1:3]
+            out = tokens.cpu()
+            return out  
+    
+    def _emb_imgs(self, images):
+        # images: list of PIL images
+        # return: embedding tensor, (length(images), 2048)
+        img_embs = []
+        for img in tqdm(images):
+            img_emb = self.img_model.encode_image(self.img_preprocess(img).unsqueeze(0).to(self.device)).cpu()
+            img_embs.append(img_emb)
+        img_embs = torch.concat(img_embs)
+        return img_embs
+        
+    def _emb_graphs(self, graphs):
+        # graphs: list of networkx graphs
+        # return: embedding tensor, (length(graphs), 2048)
+        graph_embs = []
+        for graph in tqdm(graphs):
+            d = networkx_to_dict(graph)
+            data = dict_to_pyg_graph(d, txt_enc=self._txt_enc, use_long_rel_enc=self.use_long_rel_enc)
+            if self.transform == "add_master_node_with_bidirectional_edges":
+                data = add_master_node_with_bidirectional_edges(data)
+            else:
+                raise Exception(f"Unknown transform {self.transform}")
+            batch = Batch.from_data_list([data])
+            graph_emb = self.graph_model(batch.to(self.device)).cpu()
+            graph_embs.append(graph_emb)
+        graph_embs = torch.concat(graph_embs)
+        return graph_embs
+    
+    def __call__(self, images, graphs):
+        # images: list of PIL images
+        # graphs: list of networkx graphs
+        # returns: list of scores (only guaranteed to be between [-1, 1] if normalize=True)   
+        # Compute features
+        with torch.no_grad():
+            # (n_samples, emb_sz) 
+            logging.info("Computing image embeddings...")
+            cap_embs = self._emb_graphs(graphs)
+            img_embs = self._emb_imgs(images)
+            # (n_samples, captions_per_image, emb_sz) 
+            logging.info("Computing caption embeddings...")
+            cap_embs = cap_embs.unsqueeze(1)
+            if self.normalize:
+                cap_embs /= cap_embs.norm(dim=-1, keepdim=True)
+                img_embs /= img_embs.norm(dim=-1, keepdim=True)
+        scores = torch.sum(cap_embs * img_embs, dim=1).tolist()
+        return scores    
 
                                                                               
 

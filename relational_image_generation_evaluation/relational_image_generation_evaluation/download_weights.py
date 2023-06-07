@@ -5,6 +5,7 @@ import os
 
 def download_weights(weights_name):
     destination = os.path.join(os.path.dirname(__file__), 'data', weights_name)
+    os.makedirs(os.path.dirname(destination), exist_ok=True)
     if weights_name == 'ViT-Base_Text_Emb_Hockey_Fighter.ckpt':
         # you can find the file id by opening the file in the browser in google drive and copying the id from the url
         file_id = '138GdG9GOlteVXU8s-1GC9sG9qy5HSOdK'
@@ -24,7 +25,12 @@ def download_weights(weights_name):
         text_embeddings_url = f'https://drive.google.com/uc?id={text_embeddings_file_id}'
         text_embeddings_destination = os.path.join(os.path.dirname(__file__), 'data', 'filtered_object_label_embeddings.pt')
         gdown.download(text_embeddings_url, text_embeddings_destination, quiet=False)
-        
+    elif weights_name == 'GraphCLIP.ckpt':
+        # raise Exception()
+        file_id = '1vhz_RRmdVhqSJ-ZC1y65-Lksd_zG-XM6'
+        url = f'https://drive.google.com/uc?id={file_id}'
+        gdown.download(url, destination, quiet=False)
+
 
 
 def download_filtered_graphs():

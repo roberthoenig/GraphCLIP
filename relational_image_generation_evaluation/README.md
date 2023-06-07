@@ -7,7 +7,7 @@ This package aims at bringing Roberts and my models and datasets to Stable Diffu
 Navigate to this folder in the commandline using your chosen python environment and type 
 
 ```
-pip install -e
+pip install -e .
 ```
 
 ## How to use
