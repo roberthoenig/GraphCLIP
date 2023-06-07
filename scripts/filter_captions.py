@@ -24,7 +24,7 @@ for c in captions:
         print("SHOULD NOT HAPPEN")
         exit(1)
     c['captions'].sort(key=fn)
-    c['captions'] = [d for d in c['captions'] if d["n_tokens_short"] <= 80][-1]
+    c['captions'] = [d for d in c['captions'] if d["n_tokens_short"] <= 77][-1]
 
 with open(CAPTIONS_FILTERED_PATH, "w") as f:
     captions = json.dump(captions, f)
