@@ -57,3 +57,18 @@ def download_filtered_graphs():
         test_file_id = '1J2LQhXq8nvF4Bb1BW-I0zMmxdlANej7u'
         url = f'https://drive.google.com/uc?id={test_file_id}'
         gdown.download(url, destination_test, quiet=False)
+
+
+def download_mscoco_graphs():
+    destination = os.path.join(os.path.dirname(__file__), 'data', 'mscoco_graphs.pt')
+    if not os.path.exists(destination):
+        print('Downloading filtered graphs.')
+        filed_id = '1Mu6dFN-5RsvA1pqIimgaHBJT1xeugEpa'
+        url = f'https://drive.google.com/uc?id={filed_id}'
+        gdown.download(url, destination, quiet=False)
+    
+    destination_test = os.path.join(os.path.dirname(__file__), 'data', 'mscoco_graphs_test_small.pt')
+    if not os.path.exists(destination_test):
+        test_file_id = '1MFLheYOGBC7Y-zHEv_o37ByyjdlBGy_s'
+        url = f'https://drive.google.com/uc?id={test_file_id}'
+        gdown.download(url, destination_test, quiet=False)

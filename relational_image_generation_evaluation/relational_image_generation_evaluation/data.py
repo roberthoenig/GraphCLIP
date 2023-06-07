@@ -1,4 +1,4 @@
-from .download_weights import download_filtered_graphs
+from .download_weights import download_filtered_graphs, download_mscoco_graphs
 from torch.utils.data import Dataset, DataLoader
 import torch
 import os
@@ -29,6 +29,26 @@ def load_filtered_graphs(testonly=False):
     else:
         print('Using cached filtered graphs')
         return filtered_graphs
+
+mscoco_graphs = None
+
+def load_mscoco_graphs(testonly=False):
+    if testonly:
+        download_mscoco_graphs()
+        print('Loading MSCOCO test graphs...')
+        fg = torch.load(os.path.join(os.path.dirname(__file__), 'data', 'mscoco_graphs_test_small.pt'))
+        print('Finished loading mscoco test graphs')
+        return fg
+    global mscoco_graphs
+    if mscoco_graphs is None:
+        download_mscoco_graphs()
+        print('Loading mscoco graphs...')
+        mscoco_graphs = torch.load(os.path.join(os.path.dirname(__file__), 'data', 'mscoco_graphs.pt'))
+        print('Finished loading mscoco graphs')
+        return mscoco_graphs
+    else:
+        print('Using cached filtered graphs')
+        return mscoco_graphs
     
 def copy_graph(g, nodes_restrict=None, edges_restrict=None):
     '''returns a copy of the graph g'''
@@ -186,6 +206,29 @@ class FullGraphsDataset(Dataset):
         graphs = [item for item in batch]  # assuming your DiGraph is the first element in your dataset
         return graphs
 
+class MSCOCOGraphsDataset(Dataset):
+    def __init__(self, testonly=False):
+        '''
+        Dataset of full, raw graphs from the Visual Genome overlap with the MSCOCO evaluation set,
+        annotated with ChatGPT.
+        '''
+        super().__init__()
+        self.graphs = load_mscoco_graphs(testonly=testonly)
+        # torch.randperm(len(self.graphs))
+        # self.graphs = [self.graphs[i] for i in torch.randperm(len(self.graphs))]
+
+    def __len__(self):
+        return len(self.graphs)
+
+    def __getitem__(self, idx):
+        return self.graphs[idx]
+
+    @staticmethod
+    def collate_fn(batch):
+        # batch is a list of dataset elements
+        graphs = [item for item in batch]  # assuming your DiGraph is the first element in your dataset
+        return graphs
+
 def get_one_edge_dataloader(batch_size=1, shuffle=True, testonly=False):
     dataset = OneEdgeDataset(testonly=testonly)
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=OneEdgeDataset.collate_fn)
@@ -196,4 +239,8 @@ def get_two_edge_dataloader(batch_size=1, shuffle=True, testonly=False):
 
 def get_full_graph_dataloader(batch_size=1, shuffle=True, testonly=False):
     dataset = FullGraphsDataset(testonly=testonly)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=FullGraphsDataset.collate_fn)
+
+def get_mscoco_graph_dataloader(batch_size=1, shuffle=True, testonly=False):
+    dataset = MSCOCOGraphsDataset(testonly=testonly)
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=FullGraphsDataset.collate_fn)

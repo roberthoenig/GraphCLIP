@@ -16,7 +16,7 @@ with open('datasets/graph_captions/captions_2000_filtered.json', 'r') as f:
     
 def build_graph(g_dict, text):
         G = nx.DiGraph()
-        G.text = text
+        G.caption = text
         G.image_id=g_dict['image_id']
         path = 'datasets/visual_genome/raw/VG_100K/'+str(G.image_id)+'.jpg'
         if not os.path.exists(path):
@@ -47,4 +47,5 @@ for g in tqdm(graphs):
     for e in g.edges:
         g.edges[e]['predicate'] = g.edges[e]['predicate'].lower().strip()
 
-torch.save(graphs, "graphs.pt")
+torch.save(graphs, "mscoco_graphs.pt")
+torch.save(graphs[:10], "mscoco_graphs_test_small.pt")
