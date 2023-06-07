@@ -13,6 +13,8 @@ def load_filtered_graphs(testonly=False):
         download_filtered_graphs()
         print('Loading filtered test graphs...')
         fg = torch.load(os.path.join(os.path.dirname(__file__), 'data', 'filtered_graphs_test_small.pt'))
+        for i in range(len(fg)):
+            fg[i].caption = get_caption(fg[i])
         print('Finished loading filtered test graphs')
         return fg
     global filtered_graphs
@@ -20,6 +22,8 @@ def load_filtered_graphs(testonly=False):
         download_filtered_graphs()
         print('Loading filtered graphs...')
         filtered_graphs = torch.load(os.path.join(os.path.dirname(__file__), 'data', 'filtered_graphs.pt'))
+        for i in range(len(filtered_graphs)):
+            filtered_graphs[i].caption = get_caption(filtered_graphs[i])
         print('Finished loading filtered graphs')
         return filtered_graphs
     else:
@@ -42,7 +46,18 @@ def copy_graph(g, nodes_restrict=None, edges_restrict=None):
         g_copy.remove_nodes_from([n for n in g_copy if n not in nodes_restrict])
     if edges_restrict is not None:
         g_copy.remove_edges_from([e for e in g_copy.edges() if e not in edges_restrict])
+    g_copy.caption = get_caption(g_copy) # update the caption, which might be different due to the removal of nodes and edges
     return g_copy
+
+def get_caption(graph):
+    caption = ""
+    entity_id_to_txt = {node: (', '.join(graph.nodes[node]['attributes']) + " "+ graph.nodes[node]['name']).strip() for node in graph.nodes}
+    for edge in graph.edges:
+        rel = graph.edges[edge]['predicate']
+        subj_txt = entity_id_to_txt[edge[0]]
+        obj_txt = entity_id_to_txt[edge[1]]
+        caption += subj_txt + " " + rel + " " + obj_txt + ". "
+    return caption.strip()
 
 def plot_graph(g):
     pos = nx.nx_agraph.graphviz_layout(g, prog="dot")
