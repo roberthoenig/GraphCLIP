@@ -141,7 +141,7 @@ class TwoEdgeDataset(Dataset):
         return len(self.two_edge_graphs)
 
     def __getitem__(self, idx):
-        return self.two_edge_graphs[idx]  
+        return self.two_edge_graphs[idx]
 
     @staticmethod
     def collate_fn(batch):
@@ -179,6 +179,6 @@ def get_two_edge_dataloader(batch_size=1, shuffle=True, testonly=False):
     dataset = TwoEdgeDataset(testonly=testonly)
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=TwoEdgeDataset.collate_fn)
 
-def get_full_graphs_dataloader(batch_size=1, shuffle=True, testonly=False):
+def get_full_graph_dataloader(batch_size=1, shuffle=True, testonly=False):
     dataset = FullGraphsDataset(testonly=testonly)
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=FullGraphsDataset.collate_fn)

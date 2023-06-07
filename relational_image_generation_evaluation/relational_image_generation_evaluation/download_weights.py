@@ -25,12 +25,26 @@ def download_weights(weights_name):
         text_embeddings_url = f'https://drive.google.com/uc?id={text_embeddings_file_id}'
         text_embeddings_destination = os.path.join(os.path.dirname(__file__), 'data', 'filtered_object_label_embeddings.pt')
         gdown.download(text_embeddings_url, text_embeddings_destination, quiet=False)
+<<<<<<< HEAD
     elif weights_name == 'GraphCLIP.ckpt':
         # raise Exception()
         file_id = '1vhz_RRmdVhqSJ-ZC1y65-Lksd_zG-XM6'
         url = f'https://drive.google.com/uc?id={file_id}'
         gdown.download(url, destination, quiet=False)
 
+=======
+    elif weights_name == 'ViT-Large_Text_Emb_Spring_River.ckpt':
+        file_id = '1a_m20zT5GjilVX7e_6tp8BtVzL9E2_Hc'
+        url = f'https://drive.google.com/uc?id={file_id}'
+        gdown.download(url, destination, quiet=False)
+
+        text_embeddings_file_id = '1qRcI4XxGwjshiT8IOPf1dUP90JUHCsbE'
+        text_embeddings_url = f'https://drive.google.com/uc?id={text_embeddings_file_id}'
+        text_embeddings_destination = os.path.join(os.path.dirname(__file__), 'data', 'filtered_object_label_embeddings.pt')
+        gdown.download(text_embeddings_url, text_embeddings_destination, quiet=False)
+        
+        
+>>>>>>> 5cd9c6a (new checkpoint for the pip package ViT)
 
 
 def download_filtered_graphs():

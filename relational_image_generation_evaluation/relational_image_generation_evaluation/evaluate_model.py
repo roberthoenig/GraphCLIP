@@ -33,7 +33,7 @@ class Evaluator:
         if evaluator_name == 'ViT-B/32':
             return 'ViT-Base_Text_Emb_Hockey_Fighter.ckpt'     
         elif evaluator_name == 'ViT-L/14':
-            return 'ViT-Large_Text_Emb_Light_Sun.ckpt'   
+            return 'ViT-Large_Text_Emb_Spring_River.ckpt'   
         elif evaluator_name == 'GraphCLIP':
             return 'GraphCLIP.ckpt'   
         else:
@@ -51,6 +51,7 @@ class Evaluator:
 
 class ViTBaseLargeEvaluator:
     def __init__(self, device, model_weights_path, size='base'):
+        self.size = size
         if size == 'base':
             clip_model_type = 'ViT-B/32'
             clip_pretrained_dataset = 'laion400m_e32'
@@ -101,7 +102,12 @@ class ViTBaseLargeEvaluator:
                 text_embd_obj2 = self.text_embeddings[g.nodes[edge[1]]['name']].to(self.device)
                 full_text_clip_embd = torch.cat((text_embd_obj1, text_embd_obj2), dim=0).reshape(1,-1)
                 rel_label = torch.tensor(self.rel_classes[g.edges[edge]['predicate']])
-                rel, obj1, obj2, attr = self.model(image.unsqueeze(0), full_text_clip_embd.unsqueeze(0))
+                if self.size == 'base':
+                    rel, obj1, obj2, attr = self.model(image.unsqueeze(0), full_text_clip_embd.unsqueeze(0))
+                elif self.size == 'large':
+                    rel, obj1, obj2, attr, _ = self.model(image.unsqueeze(0), full_text_clip_embd.unsqueeze(0))
+                else:
+                    raise ValueError('size must be either "base" or "large"')
                 rel = torch.softmax(rel, dim=1)
                 g_rel_confidences.append(rel[0][rel_label].item())
             if len(g_rel_confidences) > 0:
@@ -115,7 +121,14 @@ class ViTBaseLargeEvaluator:
                 text_embd_obj = self.text_embeddings[g.nodes[node]['name']].to(self.device)
                 full_text_clip_embd = torch.cat((text_embd_obj, text_embd_obj), dim=0).reshape(1,-1)
                 obj_label = torch.tensor(self.obj_classes[g.nodes[node]['name']])
-                rel, obj1, obj2, attr = self.model(image.unsqueeze(0), full_text_clip_embd.unsqueeze(0))
+                if self.size == 'base':
+                    rel, obj1, obj2, attr = self.model(image.unsqueeze(0), full_text_clip_embd.unsqueeze(0))
+                elif self.size == 'large':
+                    rel, obj1, obj2, attr1, attr2 = self.model(image.unsqueeze(0), full_text_clip_embd.unsqueeze(0))
+                    # mean of attr1 and attr2
+                    attr = (attr1 + attr2) / 2
+                else:
+                    raise ValueError('size must be either "base" or "large"')
                 attr = torch.sigmoid(attr)
                 attr_labels = [self.attr_classes[attr] for attr in g.nodes[node]['attributes']]
                 for attr_label in attr_labels:
