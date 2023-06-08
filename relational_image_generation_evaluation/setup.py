@@ -23,6 +23,7 @@ setup(
         'wandb',
         'open_clip_torch',
         'torch_geometric',
+        'requests',
         # Add all the packages your code depends on
         # They will be installed via pip when your package is installed
     ],
