@@ -208,16 +208,18 @@ class GraphCLIPEvaluator:
         with torch.no_grad():
             # (n_samples, emb_sz) 
             logging.info("Computing image embeddings...")
-            cap_embs = self._emb_graphs(graphs)
+            graph_embs = self._emb_graphs(graphs)
             img_embs = self._emb_imgs(images)
             # (n_samples, captions_per_image, emb_sz) 
             logging.info("Computing caption embeddings...")
-            cap_embs = cap_embs.unsqueeze(1)
             if self.normalize:
-                cap_embs /= cap_embs.norm(dim=-1, keepdim=True)
+                graph_embs /= graph_embs.norm(dim=-1, keepdim=True)
                 img_embs /= img_embs.norm(dim=-1, keepdim=True)
-        scores = torch.sum(cap_embs * img_embs, dim=1).tolist()
-        return scores    
+        scores = torch.sum(graph_embs * img_embs, dim=1)
+        scores_dict = {
+            'overall_scores': scores.tolist()
+        }    
+        return scores_dict
 
                                                                               
 
