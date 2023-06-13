@@ -318,7 +318,7 @@ class VisualGenomeAdversarialText(Dataset):
             for path in pathlist:
                 img_id = int(path.stem)
                 img_id_to_path[img_id] = str(path)
-        for _,v in sorted(adv_data.items()):
+        for v in adv_data:
                 caption_gt = v['subj_name'] + " " + v['original_predicate'] + " " + v['obj_name']
                 caption_adv = v['subj_name'] + " " + v['adv_predicate'] + " " + v['obj_name']
                 img_path = img_id_to_path[v['image_id']]
