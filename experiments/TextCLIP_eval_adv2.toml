@@ -1,0 +1,15 @@
+model = "TextCLIP"
+dataset = "VisualGenomeAdversarialText2"
+seed = 123456
+device = "cuda:0"
+type = "eval_adversarial"
+
+[dataset_args]
+root = "datasets/visual_genome"
+
+[model_args]
+model_name = "ViT-g-14"
+pretrained = "laion2b_s12b_b42k"
+
+[eval_args]
+normalize = true

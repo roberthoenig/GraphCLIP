@@ -326,6 +326,27 @@ class VisualGenomeAdversarialText(Dataset):
                 self.captions_adv.append(caption_adv)
                 self.img_paths.append(img_path)
 
+class VisualGenomeAdversarialText2(Dataset):
+    def __init__(self, root):
+        self.captions_gt = []
+        self.captions_adv = []
+        self.img_paths = []
+        with open(osp.join(root, 'raw', 'realistic_adversarial_samples2.json'), 'r') as f:
+            adv_data = json.load(f)
+        img_id_to_path = dict()
+        for dir in [Path(root)/"raw"/"VG_100K", Path(root)/"raw"/"VG_100K_2"]:
+            pathlist = dir.glob('*.jpg')
+            for path in pathlist:
+                img_id = int(path.stem)
+                img_id_to_path[img_id] = str(path)
+        for v in adv_data:
+                caption_gt = v['subj_name'] + " " + v['original_predicate'] + " " + v['obj_name']
+                caption_adv = v['subj_name'] + " " + v['adv_predicate'] + " " + v['obj_name']
+                img_path = img_id_to_path[v['image_id']]
+                self.captions_gt.append(caption_gt)
+                self.captions_adv.append(caption_adv)
+                self.img_paths.append(img_path)
+
 class VisualGenomeAdversarialAttrText(Dataset):
     def __init__(self, root):
         self.captions_gt = []
