@@ -307,7 +307,8 @@ def get_adversarial_attribute_dataset(version='v1'):
         graph.labels[obj1_id] = obj1_name
         graph.add_node(obj2_id, attributes=obj2_attrs, name=obj2_name)
         #### apparently this is needed for Robert's code to work. But as and is not a valid filtered predicate, we don't do that
-        graph.add_edge(obj1_id, obj2_id, predicate='and')
+        # graph.add_edge(obj1_id, obj2_id, predicate='and')
+        # graph.add_edge(obj2_id, obj1_id, predicate='and')
         ####
         graph.labels[obj2_id] = obj2_name
         graph_adv = copy_graph(graph)
@@ -327,6 +328,13 @@ def get_adv_prompt_list(type, version='v1'):
     prompt_list_original = []
     prompt_list_adv = []
     for sample in dataset:
+        if type == 'attributes':
+            n1,n2 = list(sample['original_graph'].nodes)[0:2]
+            # add edge
+            sample['original_graph'].add_edge(n1,n2, predicate='and')
+            sample['adv_graph'].add_edge(n1,n2, predicate='and')
+            sample['original_graph'] = copy_graph(sample['original_graph'])
+            sample['adv_graph'] = copy_graph(sample['adv_graph'])
         prompt_list_original.append(sample['original_graph'].caption)
         prompt_list_adv.append(sample['adv_graph'].caption)
     return prompt_list_original, prompt_list_adv
