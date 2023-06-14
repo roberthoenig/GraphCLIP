@@ -1,10 +1,15 @@
-from .download_weights import download_filtered_graphs, download_mscoco_graphs
+from .download_weights import download_filtered_graphs, download_mscoco_graphs, download_adv_datasets
 from torch.utils.data import Dataset, DataLoader
 import torch
 import os
 from tqdm import tqdm
 import networkx as nx
 import matplotlib.pyplot as plt
+import json
+
+FILTERED_OBJECTS = ['man', 'person', 'window', 'tree', 'building', 'shirt', 'wall', 'woman', 'sign', 'sky', 'ground', 'grass', 'table', 'pole', 'head', 'light', 'water', 'car', 'hand', 'hair', 'people', 'leg', 'trees', 'clouds', 'ear', 'plate', 'leaves', 'fence', 'door', 'pants', 'eye', 'train', 'chair', 'floor', 'road', 'street', 'hat', 'snow', 'wheel', 'shadow', 'jacket', 'nose', 'boy', 'line', 'shoe', 'clock', 'sidewalk', 'boat', 'tail', 'cloud', 'handle', 'letter', 'girl', 'leaf', 'horse', 'bus', 'helmet', 'bird', 'giraffe', 'field', 'plane', 'flower', 'elephant', 'umbrella', 'dog', 'shorts', 'arm', 'zebra', 'face', 'windows', 'sheep', 'glass', 'bag', 'cow', 'bench', 'cat', 'food', 'bottle', 'rock', 'tile', 'kite', 'tire', 'post', 'number', 'stripe', 'surfboard', 'truck', 'logo', 'glasses', 'roof', 'skateboard', 'motorcycle', 'picture', 'flowers', 'bear', 'player', 'foot', 'bowl', 'mirror', 'background', 'pizza', 'bike', 'shoes', 'spot', 'tracks', 'pillow', 'shelf', 'cap', 'mouth', 'box', 'jeans', 'dirt', 'lights', 'legs', 'house', 'part', 'trunk', 'banana', 'top', 'plant', 'cup', 'counter', 'board', 'bed', 'wave', 'bush', 'ball', 'sink', 'button', 'lamp', 'beach', 'brick', 'flag', 'neck', 'sand', 'vase', 'writing', 'wing', 'paper', 'seat', 'lines', 'reflection', 'coat', 'child', 'toilet', 'laptop', 'airplane', 'letters', 'glove', 'vehicle', 'phone', 'book', 'branch', 'sunglasses', 'edge', 'cake', 'desk', 'rocks', 'frisbee', 'tie', 'tower', 'animal', 'hill', 'mountain', 'headlight', 'ceiling', 'cabinet', 'eyes', 'stripes', 'wheels', 'lady', 'ocean', 'racket', 'container', 'skier', 'keyboard', 'towel', 'frame', 'windshield', 'hands', 'back', 'track', 'bat', 'finger', 'pot', 'orange', 'fork', 'waves', 'design', 'feet', 'basket', 'fruit', 'broccoli', 'engine', 'guy', 'knife', 'couch', 'railing', 'collar', 'cars']
+FILTERED_RELATIONSHIPS = ['on', 'has', 'in', 'of', 'wearing', 'with', 'behind', 'holding', 'on a', 'near', 'on top of', 'next to', 'has a', 'under', 'of a', 'by', 'above', 'wears', 'in front of', 'sitting on', 'on side of', 'attached to', 'wearing a', 'in a', 'over', 'are on', 'at', 'for', 'around', 'beside', 'standing on', 'riding', 'standing in', 'inside', 'have', 'hanging on', 'walking on', 'on front of', 'are in', 'hanging from', 'carrying', 'holds', 'covering', 'belonging to', 'between', 'along', 'eating', 'and', 'sitting in', 'watching', 'below', 'painted on', 'laying on', 'against', 'playing', 'from', 'inside of', 'looking at', 'with a', 'parked on', 'to', 'has an', 'made of', 'covered in', 'mounted on', 'says', 'growing on', 'across', 'part of', 'on back of', 'flying in', 'outside', 'lying on', 'worn by', 'walking in', 'sitting at', 'printed on', 'underneath', 'crossing', 'beneath', 'full of', 'using', 'filled with', 'hanging in', 'covered with', 'built into', 'standing next to', 'adorning', 'a', 'in middle of', 'flying', 'supporting', 'touching', 'next', 'swinging', 'pulling', 'growing in', 'sitting on top of', 'standing', 'lying on top of']
+FILTERED_ATTRIBUTES = ['white', 'black', 'blue', 'green', 'red', 'brown', 'yellow', 'small', 'large', 'wooden', 'gray', 'silver', 'metal', 'orange', 'grey', 'tall', 'long', 'dark', 'pink', 'clear', 'standing', 'round', 'tan', 'glass', 'here', 'wood', 'open', 'purple', 'big', 'short', 'plastic', 'parked', 'sitting', 'walking', 'striped', 'brick', 'young', 'gold', 'old', 'hanging', 'empty', 'on', 'bright', 'concrete', 'cloudy', 'colorful', 'one', 'beige', 'bare', 'wet', 'light', 'square', 'little', 'closed', 'stone', 'blonde', 'shiny', 'thin', 'dirty', 'flying', 'smiling', 'painted', 'thick', 'part', 'sliced', 'playing', 'tennis', 'calm', 'leather', 'distant', 'rectangular', 'looking', 'grassy', 'dry', 'light brown', 'cement', 'leafy', 'wearing', 'tiled', "man's", 'light blue', 'baseball', 'cooked', 'pictured', 'curved', 'decorative', 'dead', 'eating', 'paper', 'paved', 'fluffy', 'lit', 'back', 'framed', 'plaid', 'dirt', 'watching', 'colored', 'stuffed', 'circular']
 
 filtered_graphs=None
 
@@ -77,6 +82,10 @@ def get_caption(graph):
         subj_txt = entity_id_to_txt[edge[0]]
         obj_txt = entity_id_to_txt[edge[1]]
         caption += subj_txt + " " + rel + " " + obj_txt + ". "
+    # for all nodes that are not occuring in any edge
+    for node in graph.nodes:
+        if node not in [edge[0] for edge in graph.edges] and node not in [edge[1] for edge in graph.edges]:
+            caption += entity_id_to_txt[node] + ". "
     return caption.strip()
 
 def plot_graph(g):
@@ -244,3 +253,81 @@ def get_full_graph_dataloader(batch_size=1, shuffle=True, testonly=False):
 def get_mscoco_graph_dataloader(batch_size=1, shuffle=True, testonly=False):
     dataset = MSCOCOGraphsDataset(testonly=testonly)
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=FullGraphsDataset.collate_fn)
+
+def get_adversarial_relationship_dataset(version='v1'):
+    download_adv_datasets()
+    JONATHAN_DATASET_V1_PATH =  os.path.join(os.path.dirname(__file__), 'data', 'ra_selections_curated_adversarial.pt')
+    JONATHAN_DATASET_V2_PATH =  os.path.join(os.path.dirname(__file__), 'data', 'ra_selections_curated_adversarial2.pt')
+    if version == 'v1':
+        curated_adversarialt = torch.load(JONATHAN_DATASET_V1_PATH) # a dict with image_id as key and a graph and the adversarial perturbations as value
+    elif version == 'v2':
+        curated_adversarialt = torch.load(JONATHAN_DATASET_V2_PATH)
+    else:
+        raise ValueError(f"version {version} not recognized")
+    # the format of the dict is {image_id: [(original_graph,graph_edge,adv_predicate), ...]}
+    # we return a list of tuples (graphs, adv_graph, adv_edge, adv_predicate) for each image for each adversarial perturbation
+    dataset = []
+    for original_graph, graph_edge, adv_predicate in curated_adversarialt:
+        original_graph = copy_graph(original_graph, nodes_restrict=[graph_edge[0], graph_edge[1]], edges_restrict=[graph_edge])
+        adv_graph = copy_graph(original_graph)
+        adv_graph.edges[graph_edge]['predicate'] = adv_predicate
+        dataset.append({
+            'original_graph': copy_graph(original_graph), # we copy to get the right captions
+            'adv_graph': copy_graph(adv_graph),
+            'changed_edge': graph_edge,
+            'adv_predicate': adv_predicate
+        })
+    return dataset
+
+def get_adversarial_attribute_dataset(version='v1'):
+    assert version == 'v1', f"version {version} not recognized"
+    download_adv_datasets()
+    ROBERT_DATASET_PATH = os.path.join(os.path.dirname(__file__), 'data', 'realistic_adversarial_attributes_gt_accepted_pruned.json')
+    with open(ROBERT_DATASET_PATH, 'r') as f:
+        data = json.load(f)
+    dataset = []
+    for sample in data:
+        graph = nx.DiGraph()
+        graph.image_id = sample['image_id']
+        obj1_name = sample['objects'][0]['names'][0]
+        obj1_id = sample['objects'][0]['object_id']
+        obj2_name = sample['objects'][1]['names'][0]
+        obj2_id = sample['objects'][1]['object_id']
+        obj1_attrs = sample['objects'][0]['attributes']
+        obj2_attrs = sample['objects'][1]['attributes']
+        assert obj1_name in FILTERED_OBJECTS, f"obj1_attrs: {obj1_attrs}"
+        assert obj2_name in FILTERED_OBJECTS, f"obj2_attrs: {obj2_attrs}"
+        for attr in obj1_attrs:
+            assert attr in FILTERED_ATTRIBUTES, f"obj1_attrs: {obj1_attrs}"
+        for attr in obj2_attrs:
+            assert attr in FILTERED_ATTRIBUTES, f"obj2_attrs: {obj2_attrs}"
+        # add nodes with attributes and labels
+        graph.labels = {}
+        graph.add_node(obj1_id, attributes=obj1_attrs, name=obj1_name)
+        graph.labels[obj1_id] = obj1_name
+        graph.add_node(obj2_id, attributes=obj2_attrs, name=obj2_name)
+        #### apparently this is needed for Robert's code to work. But as and is not a valid filtered predicate, we don't do that
+        # graph.add_edge(obj1_id, obj2_id, predicate="and")
+        # graph.add_edge(obj2_id, obj1_id, predicate="and")
+        ####
+        graph.labels[obj2_id] = obj2_name
+        graph_adv = copy_graph(graph)
+        [n1,n2] = list(graph_adv.nodes)[0:2]
+        graph_adv.nodes[n1]['attributes'], graph_adv.nodes[n2]['attributes'] = graph_adv.nodes[n2]['attributes'], graph_adv.nodes[n1]['attributes']
+        dataset.append({
+            'original_graph': copy_graph(graph), # we copy to get the right captions
+            'adv_graph': copy_graph(graph_adv),
+        })
+    return dataset
+
+
+
+def get_adv_prompt_list(type, version='v1'):
+    assert type in ['relationships', 'attributes'], f"type {type} not recognized, should be 'relationships' or 'attributes'"
+    dataset = get_adversarial_relationship_dataset(version=version) if type == 'relationships' else get_adversarial_attribute_dataset(version=version)
+    prompt_list_original = []
+    prompt_list_adv = []
+    for sample in dataset:
+        prompt_list_original.append(sample['original_graph'].caption)
+        prompt_list_adv.append(sample['adv_graph'].caption)
+    return prompt_list_original, prompt_list_adv

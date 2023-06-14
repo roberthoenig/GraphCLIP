@@ -72,3 +72,22 @@ def download_mscoco_graphs():
         test_file_id = '1MFLheYOGBC7Y-zHEv_o37ByyjdlBGy_s'
         url = f'https://drive.google.com/uc?id={test_file_id}'
         gdown.download(url, destination_test, quiet=False)
+
+
+
+def download_adv_datasets():
+    destination_relv1 = os.path.join(os.path.dirname(__file__), 'data', 'ra_selections_curated_adversarial.pt')
+    if not os.path.exists(destination_relv1):
+        file_id = '19d0wd5UjpvcUfroA_02XeUMkLnSD7hSx'
+        url = f'https://drive.google.com/uc?id={file_id}'
+        gdown.download(url, destination_relv1, quiet=False)
+    destination_relv2 = os.path.join(os.path.dirname(__file__), 'data', 'ra_selections_curated_adversarial2.pt')
+    if not os.path.exists(destination_relv2):
+        file_id = '1TsabJuArEOYNxMjBYNsezO3LkuPEo7Yd'
+        url = f'https://drive.google.com/uc?id={file_id}'
+        gdown.download(url, destination_relv2, quiet=False)
+    destination_attrv1 = os.path.join(os.path.dirname(__file__), 'data', 'realistic_adversarial_attributes_gt_accepted_pruned.json')
+    if not os.path.exists(destination_attrv1):
+        file_id = '1YwRAOoWPj0Bs3XUyaMW_F0Bc3L9wj1nP'
+        url = f'https://drive.google.com/uc?id={file_id}'
+        gdown.download(url, destination_attrv1, quiet=False)

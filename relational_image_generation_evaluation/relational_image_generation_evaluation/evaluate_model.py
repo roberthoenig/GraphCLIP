@@ -2,6 +2,7 @@ from typing import Any
 
 from .graph_clip.data_utils import add_master_node_with_bidirectional_edges, dict_to_pyg_graph, networkx_to_dict
 from .vision_transformer.open_clip.jt_ViT_RelClassifier_lightning import ViT_RelClassifier
+from .vision_transformer.open_clip.jt_ViT_RelClassifier_lightning_old import ViT_RelClassifier as ViT_RelClassifier_old
 from .vision_transformer.jt_training import get_free_gpu
 import os
 from .download_weights import download_weights
@@ -10,6 +11,7 @@ import logging
 from tqdm import tqdm
 import open_clip
 from torch_geometric.data import Batch
+from .data import FILTERED_RELATIONSHIPS, FILTERED_OBJECTS, FILTERED_ATTRIBUTES
 
 class Evaluator:
     def __init__(self, evaluator_name, device='auto'):
@@ -70,15 +72,26 @@ class ViTBaseLargeEvaluator:
         self.text_embeddings = {obj:torch.tensor(obj_embeddings[i]) for i,obj in enumerate(FILTERED_OBJECTS)}
 
     def load_vit(self,clip_model_type, clip_pretrained_dataset, device):
-        model = ViT_RelClassifier(
-            n_rel_classes=100, 
-            n_obj_classes=200, 
-            n_attr_classes=100, 
-            clip_model=clip_model_type, 
-            pretrained=clip_pretrained_dataset, 
-            shallow=True, 
-            mode='text_embeddings'
-        )
+        if clip_model_type == 'ViT-B/32':
+            model = ViT_RelClassifier_old(
+                n_rel_classes=100, 
+                n_obj_classes=200, 
+                n_attr_classes=100, 
+                clip_model=clip_model_type, 
+                pretrained=clip_pretrained_dataset, 
+                shallow=True, 
+                mode='text_embeddings'
+            )
+        elif clip_model_type == 'ViT-L-14':
+            model = ViT_RelClassifier(
+                n_rel_classes=100, 
+                n_obj_classes=200, 
+                n_attr_classes=100, 
+                clip_model=clip_model_type, 
+                pretrained=clip_pretrained_dataset, 
+                shallow=True, 
+                mode='text_embeddings'
+            )
         prepocess_function = model.preprocess
         model.to(device)
         loaded = torch.load(self.model_weights_path, map_location=device)
@@ -223,10 +236,3 @@ class GraphCLIPEvaluator:
 
                                                                               
 
-
-
-
-
-FILTERED_OBJECTS = ['man', 'person', 'window', 'tree', 'building', 'shirt', 'wall', 'woman', 'sign', 'sky', 'ground', 'grass', 'table', 'pole', 'head', 'light', 'water', 'car', 'hand', 'hair', 'people', 'leg', 'trees', 'clouds', 'ear', 'plate', 'leaves', 'fence', 'door', 'pants', 'eye', 'train', 'chair', 'floor', 'road', 'street', 'hat', 'snow', 'wheel', 'shadow', 'jacket', 'nose', 'boy', 'line', 'shoe', 'clock', 'sidewalk', 'boat', 'tail', 'cloud', 'handle', 'letter', 'girl', 'leaf', 'horse', 'bus', 'helmet', 'bird', 'giraffe', 'field', 'plane', 'flower', 'elephant', 'umbrella', 'dog', 'shorts', 'arm', 'zebra', 'face', 'windows', 'sheep', 'glass', 'bag', 'cow', 'bench', 'cat', 'food', 'bottle', 'rock', 'tile', 'kite', 'tire', 'post', 'number', 'stripe', 'surfboard', 'truck', 'logo', 'glasses', 'roof', 'skateboard', 'motorcycle', 'picture', 'flowers', 'bear', 'player', 'foot', 'bowl', 'mirror', 'background', 'pizza', 'bike', 'shoes', 'spot', 'tracks', 'pillow', 'shelf', 'cap', 'mouth', 'box', 'jeans', 'dirt', 'lights', 'legs', 'house', 'part', 'trunk', 'banana', 'top', 'plant', 'cup', 'counter', 'board', 'bed', 'wave', 'bush', 'ball', 'sink', 'button', 'lamp', 'beach', 'brick', 'flag', 'neck', 'sand', 'vase', 'writing', 'wing', 'paper', 'seat', 'lines', 'reflection', 'coat', 'child', 'toilet', 'laptop', 'airplane', 'letters', 'glove', 'vehicle', 'phone', 'book', 'branch', 'sunglasses', 'edge', 'cake', 'desk', 'rocks', 'frisbee', 'tie', 'tower', 'animal', 'hill', 'mountain', 'headlight', 'ceiling', 'cabinet', 'eyes', 'stripes', 'wheels', 'lady', 'ocean', 'racket', 'container', 'skier', 'keyboard', 'towel', 'frame', 'windshield', 'hands', 'back', 'track', 'bat', 'finger', 'pot', 'orange', 'fork', 'waves', 'design', 'feet', 'basket', 'fruit', 'broccoli', 'engine', 'guy', 'knife', 'couch', 'railing', 'collar', 'cars']
-FILTERED_RELATIONSHIPS = ['on', 'has', 'in', 'of', 'wearing', 'with', 'behind', 'holding', 'on a', 'near', 'on top of', 'next to', 'has a', 'under', 'of a', 'by', 'above', 'wears', 'in front of', 'sitting on', 'on side of', 'attached to', 'wearing a', 'in a', 'over', 'are on', 'at', 'for', 'around', 'beside', 'standing on', 'riding', 'standing in', 'inside', 'have', 'hanging on', 'walking on', 'on front of', 'are in', 'hanging from', 'carrying', 'holds', 'covering', 'belonging to', 'between', 'along', 'eating', 'and', 'sitting in', 'watching', 'below', 'painted on', 'laying on', 'against', 'playing', 'from', 'inside of', 'looking at', 'with a', 'parked on', 'to', 'has an', 'made of', 'covered in', 'mounted on', 'says', 'growing on', 'across', 'part of', 'on back of', 'flying in', 'outside', 'lying on', 'worn by', 'walking in', 'sitting at', 'printed on', 'underneath', 'crossing', 'beneath', 'full of', 'using', 'filled with', 'hanging in', 'covered with', 'built into', 'standing next to', 'adorning', 'a', 'in middle of', 'flying', 'supporting', 'touching', 'next', 'swinging', 'pulling', 'growing in', 'sitting on top of', 'standing', 'lying on top of']
-FILTERED_ATTRIBUTES = ['white', 'black', 'blue', 'green', 'red', 'brown', 'yellow', 'small', 'large', 'wooden', 'gray', 'silver', 'metal', 'orange', 'grey', 'tall', 'long', 'dark', 'pink', 'clear', 'standing', 'round', 'tan', 'glass', 'here', 'wood', 'open', 'purple', 'big', 'short', 'plastic', 'parked', 'sitting', 'walking', 'striped', 'brick', 'young', 'gold', 'old', 'hanging', 'empty', 'on', 'bright', 'concrete', 'cloudy', 'colorful', 'one', 'beige', 'bare', 'wet', 'light', 'square', 'little', 'closed', 'stone', 'blonde', 'shiny', 'thin', 'dirty', 'flying', 'smiling', 'painted', 'thick', 'part', 'sliced', 'playing', 'tennis', 'calm', 'leather', 'distant', 'rectangular', 'looking', 'grassy', 'dry', 'light brown', 'cement', 'leafy', 'wearing', 'tiled', "man's", 'light blue', 'baseball', 'cooked', 'pictured', 'curved', 'decorative', 'dead', 'eating', 'paper', 'paved', 'fluffy', 'lit', 'back', 'framed', 'plaid', 'dirt', 'watching', 'colored', 'stuffed', 'circular']
