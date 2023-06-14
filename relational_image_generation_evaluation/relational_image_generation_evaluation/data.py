@@ -269,6 +269,8 @@ def get_adversarial_relationship_dataset(version='v1'):
     dataset = []
     for original_graph, graph_edge, adv_predicate in curated_adversarialt:
         original_graph = copy_graph(original_graph, nodes_restrict=[graph_edge[0], graph_edge[1]], edges_restrict=[graph_edge])
+        for node in original_graph.nodes:
+            original_graph.nodes[node]['attributes'] = []
         adv_graph = copy_graph(original_graph)
         adv_graph.edges[graph_edge]['predicate'] = adv_predicate
         dataset.append({
@@ -307,8 +309,7 @@ def get_adversarial_attribute_dataset(version='v1'):
         graph.labels[obj1_id] = obj1_name
         graph.add_node(obj2_id, attributes=obj2_attrs, name=obj2_name)
         #### apparently this is needed for Robert's code to work. But as and is not a valid filtered predicate, we don't do that
-        # graph.add_edge(obj1_id, obj2_id, predicate="and")
-        # graph.add_edge(obj2_id, obj1_id, predicate="and")
+        graph.add_edge(obj1_id, obj2_id, predicate='and')
         ####
         graph.labels[obj2_id] = obj2_name
         graph_adv = copy_graph(graph)

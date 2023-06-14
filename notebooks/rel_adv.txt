@@ -1,64 +1,64 @@
-walking, brown man lying on sidewalk.
-walking, brown man sitting on sidewalk.
+man lying on sidewalk.
+man sitting on sidewalk.
 book beside table.
 man beside sidewalk.
 man behind sidewalk.
 man lying on desk.
-blue, black cup next to desk.
-blue, black cup in front of desk.
-large bottle beside long table.
-large bottle below long table.
-large bottle beside long table.
-large bottle below long table.
-person sitting on small, red car.
-black sign on top of grey road.
-bike on red, parked car.
-bike in a red, parked car.
-black sign on grey road.
+cup next to desk.
+cup in front of desk.
+bottle beside table.
+bottle below table.
+bottle beside table.
+bottle below table.
+person sitting on car.
+sign on top of road.
+bike on car.
+bike in a car.
+sign on road.
 door below cabinet.
 laptop below desk.
 laptop in front of desk.
-flowers in front of glass table.
+flowers in front of table.
 book inside shelf.
 book below shelf.
-red pillow next to bed.
+pillow next to bed.
 book inside shelf.
 vase on lamp.
-yellow wall next to lamp.
-yellow flowers outside vase.
-brown bowl in front of table.
-brown box on desk.
-white cup next to desk.
-brown box over desk.
-black hat beside head.
+wall next to lamp.
+flowers outside vase.
+bowl in front of table.
+box on desk.
+cup next to desk.
+box over desk.
+hat beside head.
 box beside desk.
 shelf next to desk.
 bird in front of branch.
 car beside road.
-small building on tower.
-small building on top of tower.
-tall tower in front of building.
-white handle behind white, small cup.
+building on tower.
+building on top of tower.
+tower in front of building.
+handle behind cup.
 man under bed.
 man next to bed.
-tree on tall, walking, tan, white giraffe.
-black tie beside smiling man.
-smiling man lying on table.
-here, orange, thick, tall trees on green field.
-here, orange, thick, tall trees in front of brown cow.
-here, orange, thick, tall trees on brown cow.
-here, orange, thick, tall trees in front of green field.
-red, white sign behind metal pole.
-green leaves above red, white sign.
+tree on giraffe.
+tie beside man.
+man lying on table.
+trees on field.
+trees in front of cow.
+trees on cow.
+trees in front of field.
+sign behind pole.
+leaves above sign.
 people behind boat.
 people beside table.
 food below table.
 people walking on building.
 people lying on top of building.
-hill in front of large building.
-red, white, big sign on clear road.
-red, white, big sign on top of clear road.
-red, white, big sign behind clear road.
+hill in front of building.
+sign on road.
+sign on top of road.
+sign behind road.
 trees in front of elephant.
 person laying on elephant.
 person standing on elephant.
@@ -69,35 +69,35 @@ trees in front of elephant.
 trees on elephant.
 man standing on elephant.
 trees on elephant.
-here, white, yellow wall in front of here, black, playing cat.
-here, white, yellow wall on here, black, playing cat.
+wall in front of cat.
+wall on cat.
 cow outside grass.
-on, lit lamp inside brown, wood, round, metal table.
+lamp inside table.
 people on fence.
 people in front of fence.
-mirror below white sink.
-sign behind black, white cow.
+mirror below sink.
+sign behind cow.
 snow below mountain.
-black bird in front of rectangular sign.
-old, brick building beside clock.
+bird in front of sign.
+building beside clock.
 man flying skateboard.
 man sitting in background.
 engine on top of wing.
-sitting man over colorful, blue, red, green, yellow umbrella.
-sitting man behind colorful, blue, red, green, yellow umbrella.
-sitting man on colorful, blue, red, green, yellow umbrella.
-number below blue shirt.
+man over umbrella.
+man behind umbrella.
+man on umbrella.
+number below shirt.
 water on bottle.
 motorcycle on top of building.
-dark, green chair beside pole.
+chair beside pole.
 chair in front of motorcycle.
 chair on motorcycle.
 window behind chair.
-white, plastic chair supporting wall.
-dark, green chair next to pole.
-black letter next to white sign.
-green grass on top of white, pictured frisbee.
-green grass on white, pictured frisbee.
-white cup behind sitting bear.
-white cup beside sitting bear.
-white cup on sitting bear.
+chair supporting wall.
+chair next to pole.
+letter next to sign.
+grass on top of frisbee.
+grass on frisbee.
+cup behind bear.
+cup beside bear.
+cup on bear.

@@ -1,64 +1,64 @@
-walking, brown man walking on sidewalk.
-walking, brown man walking on sidewalk.
+man walking on sidewalk.
+man walking on sidewalk.
 book on table.
 man on sidewalk.
 man on sidewalk.
 man sitting at desk.
-blue, black cup on desk.
-blue, black cup on desk.
-large bottle on long table.
-large bottle on long table.
-large bottle on long table.
-large bottle on long table.
-person sitting in small, red car.
-black sign next to grey road.
-bike next to red, parked car.
-bike next to red, parked car.
-black sign next to grey road.
+cup on desk.
+cup on desk.
+bottle on table.
+bottle on table.
+bottle on table.
+bottle on table.
+person sitting in car.
+sign next to road.
+bike next to car.
+bike next to car.
+sign next to road.
 door on cabinet.
 laptop on desk.
 laptop on desk.
-flowers on glass table.
+flowers on table.
 book on shelf.
 book on shelf.
-red pillow on bed.
+pillow on bed.
 book on shelf.
 vase in front of lamp.
-yellow wall behind lamp.
-yellow flowers in vase.
-brown bowl on table.
-brown box under desk.
-white cup on desk.
-brown box under desk.
-black hat on head.
+wall behind lamp.
+flowers in vase.
+bowl on table.
+box under desk.
+cup on desk.
+box under desk.
+hat on head.
 box on top of desk.
 shelf on desk.
 bird on branch.
 car on road.
-small building next to tower.
-small building next to tower.
-tall tower on building.
-white handle on white, small cup.
+building next to tower.
+building next to tower.
+tower on building.
+handle on cup.
 man on bed.
 man on bed.
-tree behind tall, walking, tan, white giraffe.
-black tie on smiling man.
-smiling man sitting at table.
-here, orange, thick, tall trees behind green field.
-here, orange, thick, tall trees behind brown cow.
-here, orange, thick, tall trees behind brown cow.
-here, orange, thick, tall trees behind green field.
-red, white sign on metal pole.
-green leaves on red, white sign.
+tree behind giraffe.
+tie on man.
+man sitting at table.
+trees behind field.
+trees behind cow.
+trees behind cow.
+trees behind field.
+sign on pole.
+leaves on sign.
 people in a boat.
 people at table.
 food on table.
 people sitting on top of building.
 people sitting on top of building.
-hill behind large building.
-red, white, big sign next to clear road.
-red, white, big sign next to clear road.
-red, white, big sign next to clear road.
+hill behind building.
+sign next to road.
+sign next to road.
+sign next to road.
 trees behind elephant.
 person sitting on elephant.
 person sitting on elephant.
@@ -69,35 +69,35 @@ trees behind elephant.
 trees behind elephant.
 man sitting on elephant.
 trees behind elephant.
-here, white, yellow wall behind here, black, playing cat.
-here, white, yellow wall behind here, black, playing cat.
+wall behind cat.
+wall behind cat.
 cow in grass.
-on, lit lamp on brown, wood, round, metal table.
+lamp on table.
 people behind fence.
 people behind fence.
-mirror over white sink.
-sign on black, white cow.
+mirror over sink.
+sign on cow.
 snow on mountain.
-black bird on rectangular sign.
-old, brick building with clock.
+bird on sign.
+building with clock.
 man riding skateboard.
 man standing in background.
 engine under wing.
-sitting man under colorful, blue, red, green, yellow umbrella.
-sitting man under colorful, blue, red, green, yellow umbrella.
-sitting man under colorful, blue, red, green, yellow umbrella.
-number on blue shirt.
+man under umbrella.
+man under umbrella.
+man under umbrella.
+number on shirt.
 water in bottle.
 motorcycle next to building.
-dark, green chair behind pole.
+chair behind pole.
 chair behind motorcycle.
 chair behind motorcycle.
 window above chair.
-white, plastic chair against wall.
-dark, green chair behind pole.
-black letter on white sign.
-green grass under white, pictured frisbee.
-green grass under white, pictured frisbee.
-white cup in front of sitting bear.
-white cup in front of sitting bear.
-white cup in front of sitting bear.
+chair against wall.
+chair behind pole.
+letter on sign.
+grass under frisbee.
+grass under frisbee.
+cup in front of bear.
+cup in front of bear.
+cup in front of bear.

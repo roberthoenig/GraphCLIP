@@ -1,100 +1,100 @@
-green grass. dead tree.
-green grass. big tree.
-blonde woman. standing boy.
-blonde woman. young boy.
-colorful shirt. yellow box.
-colorful shirt. white wall.
-yellow box. white wall.
-wooden chair. concrete floor.
-green trees. long train.
-white bus. purple truck.
-red bus. purple truck.
-black desk. grey floor.
-black desk. orange chair.
-grey floor. orange chair.
-grey floor. red chair.
-white clouds. black pole.
-large bench. white truck.
-old bench. white truck.
-light brown floor. white wall.
-light brown floor. black shorts.
-yellow line. green train.
-brown man. large basket.
-green broccoli. white plate.
-white kite. green water.
-orange kite. green water.
-white laptop. brown desk.
-small laptop. brown desk.
-decorative chair. white paper.
-brown desk. striped seat.
-wooden desk. striped seat.
-striped seat. white paper.
-small hill. long beach.
-white horse. tan field.
-white horse. brown field.
-grey horse. light brown field.
-blue cake. gray plate.
-round cake. gray plate.
-white cake. black counter.
-gray plate. wood floor.
-yellow umbrella. white boat.
-orange umbrella. white boat.
-yellow umbrella. green water.
-gray cat. black chair.
-white plate. wooden table.
-black couch. white counter.
-grey couch. white wall.
-black sign. red building.
-blue sign. red building.
-large sign. red building.
-large sign. clear sky.
-brown table. decorative tile.
-wooden table. decorative tile.
-yellow grass. tall fence.
-yellow grass. silver fence.
-yellow grass. bare tree.
-light shirt. large umbrella.
-light shirt. dark pants.
-gray fence. orange sky.
-white sidewalk. brown pole.
-wooden frame. metal table.
-empty plate. red bottle.
-tan chair. metal cabinet.
-white table. brown shelf.
-wooden shelf. black floor.
-white shirt. plaid pillow.
-yellow wall. white board.
-gray chair. white couch.
-clear water. blue sky.
-blue road. red building.
-blue road. brick building.
-white top. yellow shirt.
-red building. decorative roof.
-gray floor. wood wall.
-clear water. grey sky.
-green roof. colorful tree.
-blue chair. brown top.
-red hair. black shirt.
-beige fence. black road.
-white desk. brown chair.
-white wall. beige counter.
-green light. small cars.
-white hat. paper book.
-green chair. brown pants.
-white top. orange shirt.
-orange shirt. brown tie.
-orange bed. white wall.
-green flowers. white fence.
-green airplane. white ground.
-white box. brown wall.
-brown cake. white table.
-brown box. beige table.
-black bag. white shorts.
-bright sky. blue bench.
-striped shirt. black umbrella.
-red door. black stripe.
-black bench. tan bear.
-green shirt. black fence.
-silver chair. black bird.
-brown counter. white dog.
-red table. white floor.
+green grass and dead tree.
+green grass and big tree.
+blonde woman and standing boy.
+blonde woman and young boy.
+colorful shirt and yellow box.
+colorful shirt and white wall.
+yellow box and white wall.
+wooden chair and concrete floor.
+green trees and long train.
+white bus and purple truck.
+red bus and purple truck.
+black desk and grey floor.
+black desk and orange chair.
+grey floor and orange chair.
+grey floor and red chair.
+white clouds and black pole.
+large bench and white truck.
+old bench and white truck.
+light brown floor and white wall.
+light brown floor and black shorts.
+yellow line and green train.
+brown man and large basket.
+green broccoli and white plate.
+white kite and green water.
+orange kite and green water.
+white laptop and brown desk.
+small laptop and brown desk.
+decorative chair and white paper.
+brown desk and striped seat.
+wooden desk and striped seat.
+striped seat and white paper.
+small hill and long beach.
+white horse and tan field.
+white horse and brown field.
+grey horse and light brown field.
+blue cake and gray plate.
+round cake and gray plate.
+white cake and black counter.
+gray plate and wood floor.
+yellow umbrella and white boat.
+orange umbrella and white boat.
+yellow umbrella and green water.
+gray cat and black chair.
+white plate and wooden table.
+black couch and white counter.
+grey couch and white wall.
+black sign and red building.
+blue sign and red building.
+large sign and red building.
+large sign and clear sky.
+brown table and decorative tile.
+wooden table and decorative tile.
+yellow grass and tall fence.
+yellow grass and silver fence.
+yellow grass and bare tree.
+light shirt and large umbrella.
+light shirt and dark pants.
+gray fence and orange sky.
+white sidewalk and brown pole.
+wooden frame and metal table.
+empty plate and red bottle.
+tan chair and metal cabinet.
+white table and brown shelf.
+wooden shelf and black floor.
+white shirt and plaid pillow.
+yellow wall and white board.
+gray chair and white couch.
+clear water and blue sky.
+blue road and red building.
+blue road and brick building.
+white top and yellow shirt.
+red building and decorative roof.
+gray floor and wood wall.
+clear water and grey sky.
+green roof and colorful tree.
+blue chair and brown top.
+red hair and black shirt.
+beige fence and black road.
+white desk and brown chair.
+white wall and beige counter.
+green light and small cars.
+white hat and paper book.
+green chair and brown pants.
+white top and orange shirt.
+orange shirt and brown tie.
+orange bed and white wall.
+green flowers and white fence.
+green airplane and white ground.
+white box and brown wall.
+brown cake and white table.
+brown box and beige table.
+black bag and white shorts.
+bright sky and blue bench.
+striped shirt and black umbrella.
+red door and black stripe.
+black bench and tan bear.
+green shirt and black fence.
+silver chair and black bird.
+brown counter and white dog.
+red table and white floor.
