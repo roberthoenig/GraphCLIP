@@ -275,9 +275,7 @@ def get_adversarial_relationship_dataset(version='v1'):
         adv_graph.edges[graph_edge]['predicate'] = adv_predicate
         dataset.append({
             'original_graph': copy_graph(original_graph), # we copy to get the right captions
-            'adv_graph': copy_graph(adv_graph),
-            'changed_edge': graph_edge,
-            'adv_predicate': adv_predicate
+            'adv_graph': copy_graph(adv_graph)
         })
     return dataset
 
