@@ -40,6 +40,11 @@ def download_weights(weights_name):
         text_embeddings_url = f'https://drive.google.com/uc?id={text_embeddings_file_id}'
         text_embeddings_destination = os.path.join(os.path.dirname(__file__), 'data', 'filtered_object_label_embeddings.pt')
         gdown.download(text_embeddings_url, text_embeddings_destination, quiet=False)
+
+    elif weights_name == 'hpc.pt':
+        file_id = '1_KL-3i4CbDgKAAjvZu0qiDYd0Q0i1o0Z'
+        url = f'https://drive.google.com/uc?id={file_id}'
+        gdown.download(url, destination, quiet=False)
         
         
 
