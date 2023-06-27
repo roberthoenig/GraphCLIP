@@ -171,6 +171,7 @@ def get_dataloader(
         num_workers=8, 
         shuffle=True,
         testing_only=False,
+        get_pure_graphs=False,
     ):
     print("Loading filtered graphs...")
     if testing_only:
@@ -215,6 +216,8 @@ def get_dataloader(
     dataloader_train = DataLoader(dataset_train, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle)
     dataloader_val = DataLoader(dataset_val, batch_size=batch_size, num_workers=num_workers, shuffle=False)
 
+    if get_pure_graphs:
+        return dataset_train, dataset_val, filtered_graphs_train, filtered_graphs_val
     return dataloader_train, dataloader_val
 
 

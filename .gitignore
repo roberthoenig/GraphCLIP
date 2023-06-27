@@ -132,3 +132,4 @@ experiments/*
 !experiments/*.toml
 *_local.toml
 *.pdf
+args.txt

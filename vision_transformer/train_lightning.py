@@ -13,9 +13,9 @@ image_dir = "/local/home/jthomm/GraphCLIP/datasets/visual_genome/raw/VG/"
 metadata_path = "/local/home/jthomm/GraphCLIP/datasets/visual_genome/processed/"
 run_logs_dir = "/local/home/jthomm/GraphCLIP/experiments/"
 
-num_epochs = 30
+num_epochs = 10
 clip_model_type =  'ViT-L-14' # 'ViT-L-14' #'ViT-g-14' #'ViT-H-14' #'ViT-B/32'
-clip_pretrained_dataset = 'laion2b_s32b_b82k' # 'laion2b_s32b_b82k' # 'laion2b_s34b_b88k'  # 'laion2b_s32b_b79k' # 'laion400m_e32'
+clip_pretrained_dataset = 'datacomp_xl_s13b_b90k' # 'laion2b_s32b_b82k' # 'laion2b_s34b_b88k'  # 'laion2b_s32b_b79k' # 'laion400m_e32'
 shallow = True
 debug_mode = False # turn this on such that a tiny dataset is loaded such that you can test the code
 input_mode = 'text_embeddings' # 'bounding_boxes'
@@ -39,7 +39,7 @@ description = f"""
 ### setup CUDA
 torch.set_float32_matmul_precision('medium') # lightning says i should do this, either 'medium' or 'high'
 free_devices = get_all_free_gpus_ids()
-free_devices = [1,4,5,6]
+free_devices = [0,2,3,5]
 os.environ["CUDA_VISIBLE_DEVICES"] = ",".join([str(i) for i in free_devices])
 print(f"Making CUDA devices visible: {free_devices}")
 
