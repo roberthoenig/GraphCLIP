@@ -74,6 +74,19 @@ def download_mscoco_graphs():
         gdown.download(url, destination_test, quiet=False)
 
 
+def download_cc500_graphs():
+    destination = os.path.join(os.path.dirname(__file__), 'data', 'cc500_graphs.pt')
+    if not os.path.exists(destination):
+        print('Downloading filtered graphs.')
+        filed_id = '15Stxq1B3qAgMdUt3qivAUozmgCzoq_j1'
+        url = f'https://drive.google.com/uc?id={filed_id}'
+        gdown.download(url, destination, quiet=False)
+    
+    destination_test = os.path.join(os.path.dirname(__file__), 'data', 'cc500_graphs_test_small.pt')
+    if not os.path.exists(destination_test):
+        test_file_id = '1Xruya-fFScPZPB5h5MK9ci6fdscukSlQ'
+        url = f'https://drive.google.com/uc?id={test_file_id}'
+        gdown.download(url, destination_test, quiet=False)
 
 def download_adv_datasets():
     destination_relv1 = os.path.join(os.path.dirname(__file__), 'data', 'ra_selections_curated_adversarial.pt')

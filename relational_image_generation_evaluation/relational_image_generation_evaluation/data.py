@@ -1,4 +1,4 @@
-from .download_weights import download_filtered_graphs, download_mscoco_graphs, download_adv_datasets
+from .download_weights import download_cc500_graphs, download_filtered_graphs, download_mscoco_graphs, download_adv_datasets
 from torch.utils.data import Dataset, DataLoader
 import torch
 import os
@@ -54,6 +54,24 @@ def load_mscoco_graphs(testonly=False):
     else:
         print('Using cached filtered graphs')
         return mscoco_graphs
+
+def load_cc500_graphs(testonly=False):
+    if testonly:
+        download_cc500_graphs()
+        print('Loading cc500 test graphs...')
+        fg = torch.load(os.path.join(os.path.dirname(__file__), 'data', 'cc500_graphs_test_small.pt'))
+        print('Finished loading cc500 test graphs')
+        return fg
+    global cc500_graphs
+    if cc500_graphs is None:
+        download_cc500_graphs()
+        print('Loading cc500 graphs...')
+        cc500_graphs = torch.load(os.path.join(os.path.dirname(__file__), 'data', 'cc500_graphs.pt'))
+        print('Finished loading cc500 graphs')
+        return cc500_graphs
+    else:
+        print('Using cached filtered graphs')
+        return cc500_graphs
     
 def copy_graph(g, nodes_restrict=None, edges_restrict=None):
     '''returns a copy of the graph g'''
@@ -232,6 +250,20 @@ class MSCOCOGraphsDataset(Dataset):
     def __getitem__(self, idx):
         return self.graphs[idx]
 
+class CC500GraphsDataset(Dataset):
+    def __init__(self, testonly=False):
+        '''
+        Dataset of graphs from the CC-500 dataset from the Structured Diffusion Guidance paper.
+        '''
+        super().__init__()
+        self.graphs = load_cc500_graphs(testonly=testonly)
+
+    def __len__(self):
+        return len(self.graphs)
+
+    def __getitem__(self, idx):
+        return self.graphs[idx]
+
     @staticmethod
     def collate_fn(batch):
         # batch is a list of dataset elements
@@ -252,6 +284,10 @@ def get_full_graph_dataloader(batch_size=1, shuffle=True, testonly=False):
 
 def get_mscoco_graph_dataloader(batch_size=1, shuffle=True, testonly=False):
     dataset = MSCOCOGraphsDataset(testonly=testonly)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=FullGraphsDataset.collate_fn)
+
+def get_cc500_graph_dataloader(batch_size=1, shuffle=True, testonly=False):
+    dataset = CC500GraphsDataset(testonly=testonly)
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=FullGraphsDataset.collate_fn)
 
 def get_adversarial_relationship_dataset(version='v1'):
