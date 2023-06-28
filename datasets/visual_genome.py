@@ -11,6 +11,7 @@ from PIL import Image
 from torch_geometric.data import Data
 from pathlib import Path
 from scripts import create_adversarial_attributes_dataset
+from transformers import AutoProcessor, CLIPVisionModelWithProjection
 
 # Embeds text with CLIP
 def dict_to_pyg_graph(d, img_enc, txt_enc, image_id_to_path, metadata, coco_val_ids, use_long_rel_enc, enc_img=True):
@@ -161,7 +162,7 @@ class VisualGenome(InMemoryDataset):
         self.one_sample_per_edge = one_sample_per_edge
         super().__init__(root, transform_fn, pre_transform_fn, pre_filter)
         self.data, self.slices = torch.load(self.processed_paths[0])
-        cached_img_enc_path = osp.join(self.processed_dir, f"{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_{self.n_samples}_img_enc_cache.pt")
+        cached_img_enc_path = osp.join(self.processed_dir, f"{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_{self.n_samples}_use_sd_img_enc{self.enc_cfg.get('use_sd_img_enc', False)}_img_enc_cache.pt")
 
     @property
     def raw_file_names(self):
@@ -222,14 +223,26 @@ class VisualGenome(InMemoryDataset):
         with open(osp.join(self.raw_dir, "annotations", "instances_val2017.json"), 'r') as f:
             mscoco_val_dict = json.load(f)
             coco_val_ids = [int(Path(o['file_name']).stem) for o in mscoco_val_dict['images']]
-        cached_img_enc_path = osp.join(self.processed_dir, f"{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_{self.n_samples}_img_enc_cache.pt")
+        cached_img_enc_path = osp.join(self.processed_dir, f"{self.enc_cfg['model_name']}_{self.enc_cfg['pretrained']}_{self.n_samples}_use_sd_img_enc{self.enc_cfg.get('use_sd_img_enc', False)}_img_enc_cache.pt")
+        if self.enc_cfg.get('use_sd_img_enc', False):
+            model = CLIPVisionModelWithProjection.from_pretrained("openai/clip-vit-large-patch14").to(self.enc_cfg['device'])
+            processor = AutoProcessor.from_pretrained("openai/clip-vit-large-patch14")
+            def enc_img(path):
+                inputs = processor(images=Image.open(path), return_tensors="pt").to(self.enc_cfg['device'])
+                outputs = model(**inputs)
+                image_embeds = outputs.image_embeds.cpu()
+                return image_embeds
+        else:
+            def enc_img(img_path):
+                 return model.encode_image(preprocess(Image.open(img_path)).unsqueeze(0).to(self.enc_cfg["device"])).cpu()
+            
         if not osp.exists(cached_img_enc_path):
             logging.info("Embedding images with CLIP...")
             cached_img_enc = dict()  
             for d in tqdm(scene_graphs_dict):
                 img_path = image_id_to_path[d['image_id']]
                 with torch.no_grad():
-                    img_enc = model.encode_image(preprocess(Image.open(img_path)).unsqueeze(0).to(self.enc_cfg["device"])).cpu()
+                    img_enc = enc_img(img_path)
                     cached_img_enc[img_path] = img_enc
             torch.save(cached_img_enc, cached_img_enc_path)
         cached_img_enc = torch.load(cached_img_enc_path)

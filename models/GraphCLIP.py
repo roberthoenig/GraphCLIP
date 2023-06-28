@@ -17,6 +17,7 @@ import numpy as np
 import os.path as osp
 import torch.nn as nn
 import open_clip
+from transformers import CLIPTextModelWithProjection
 
 class GNN(torch.nn.Module):
     def __init__(self, in_dim, out_dim):
@@ -563,6 +564,64 @@ class GNN15(torch.nn.Module):
             return x, node_mask
         else:
             return x
+        
+          
+# Like GNN15, but transforms outputs with the text transformer model's final projection.
+class GNN16(torch.nn.Module):
+    def __init__(self, in_dim, out_dim, edge_dim, edge_projected_dim, middle_dim, model_name, pretrained, freeze_embedding, embedding_init, noise, zero_edge_attr=False):
+        super().__init__()
+        self.conv1 = construct_my_layer(node_in_dim=in_dim, node_out_dim=middle_dim, edge_in_dim=edge_projected_dim)
+        self.conv2 = construct_my_layer(node_in_dim=middle_dim, node_out_dim=middle_dim, edge_in_dim=edge_projected_dim)
+        self.conv3 = construct_my_layer(node_in_dim=middle_dim, node_out_dim=out_dim, edge_in_dim=edge_projected_dim)
+        self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
+        self.project_edges = torch.nn.Linear(edge_dim, edge_projected_dim)
+        self.zero_edge_attr = zero_edge_attr
+        self.noise = noise
+        model, _, _ = open_clip.create_model_and_transforms(model_name=model_name, pretrained=pretrained, device="cpu")
+        emb_dim = model.token_embedding.embedding_dim
+        if embedding_init == 'random':
+            new_shape = list(model.token_embedding.weight.shape)
+            new_shape[0] += 4
+            weights = torch.randn(new_shape)
+        elif embedding_init == 'CLIP':
+            avg_norm = model.token_embedding.weight.norm(dim=1).mean()
+            new_embs = torch.sin(torch.arange(1, 5, dtype=torch.float).reshape(-1,1) * torch.arange(emb_dim, dtype=torch.float).reshape(1,-1))
+            new_embs_norm = new_embs.norm(dim=1).mean()
+            new_embs = new_embs * (avg_norm/new_embs_norm)
+            weights = torch.cat([model.token_embedding.weight, new_embs])
+        else:
+            raise Exception(f"Unknown embedding_init {embedding_init}.")
+        self.embedding = torch.nn.Embedding.from_pretrained(weights, freeze=freeze_embedding)
+        text_model = CLIPTextModelWithProjection.from_pretrained("openai/clip-vit-large-patch14")
+        self.final_proj = text_model.text_projection
+        for param in self.final_proj.parameters():
+            param.requires_grad = False
+
+    def forward(self, data, exclude_from_dropout=None, return_dropout_mask=False, dropout_mask=None, p_dropout=None):
+        data = tokens_to_embeddings_batched(data, self.embedding)
+        x, edge_index, edge_attr, batch = data.x, data.edge_index, data.edge_attr, data.batch
+        x += torch.randn(x.shape, device=x.device) * (self.noise if self.training else 0.0)
+        edge_index, edge_mask, node_mask = dropout_node_keep_master_nodes(edge_index=edge_index,
+                                                                  batch=batch, training=self.training,
+                                                                  p=p_dropout, exclude_from_dropout=exclude_from_dropout,
+                                                                  dropout_mask=dropout_mask)
+        if self.zero_edge_attr:
+            edge_attr[True] = 0
+        edge_attr = edge_attr[edge_mask]
+        edge_attr = self.project_edges(edge_attr)
+        x, edge_attr, _ = self.conv1(x, edge_index, edge_attr)
+        x = F.relu(x)
+        edge_attr = F.relu(edge_attr)
+        x, edge_attr, _ = self.conv2(x, edge_index, edge_attr)
+        x = F.relu(x)
+        edge_attr = F.relu(edge_attr)
+        x, edge_attr, _ = self.conv3(x, edge_index, edge_attr)
+        x = global_master_pool(x, batch)
+        x = self.final_proj(x)
+        if return_dropout_mask:
+            return x, node_mask
+        else:
+            return x
 
 class GraphCLIP():
     def __init__(self, config):
@@ -606,6 +665,8 @@ class GraphCLIP():
                 model = GNN14(**self.config["model_args"]["arch_args"])
             elif arch == "GNN15":
                 model = GNN15(**self.config["model_args"]["arch_args"])
+            elif arch == "GNN16":
+                model = GNN16(**self.config["model_args"]["arch_args"])
             else:
                 raise Exception(f"Unknown architecture {arch}.")
         model.to(self.config["device"])
