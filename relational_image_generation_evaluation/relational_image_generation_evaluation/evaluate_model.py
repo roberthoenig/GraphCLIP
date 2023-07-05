@@ -14,16 +14,17 @@ from torch_geometric.data import Batch
 from .data import FILTERED_RELATIONSHIPS, FILTERED_OBJECTS, FILTERED_ATTRIBUTES
 
 class Evaluator:
-    def __init__(self, evaluator_name, device='auto'):
+    def __init__(self, evaluator_name, device='auto', model_weights_path=None):
         self.evaluator_name = evaluator_name
         self.weights_name = Evaluator._get_weights_name(evaluator_name)
         self.device = device if device != 'auto' else get_free_gpu()
         print(f'Using device {self.device} for evaluation.')
-        model_weights_path = os.path.join(os.path.dirname(__file__), 'data', self.weights_name)
+        if model_weights_path is None:
+            model_weights_path = os.path.join(os.path.dirname(__file__), 'data', self.weights_name)
         # check if weights are downloaded, otherwise download them
-        if not os.path.exists(model_weights_path):
-            download_weights(self.weights_name)
-            print(f'Downloaded weights for {self.evaluator_name} to {model_weights_path}.')
+            if not os.path.exists(model_weights_path):
+                download_weights(self.weights_name)
+                print(f'Downloaded weights for {self.evaluator_name} to {model_weights_path}.')
         if self.evaluator_name == 'ViT-B/32':
             self._evaluator = ViTBaseLargeEvaluator(device=self.device, model_weights_path=model_weights_path, size='base')
         elif self.evaluator_name == 'ViT-L/14':

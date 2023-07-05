@@ -1,0 +1,7 @@
+,,avg_score_img_to_prompt,acc_betterthan_baseline_origimg
+fa_maps-l,I,0.45,0.57
+fa_maps-l,II,0.44,0.57
+base-l,I,0.41,0.0
+base-l,II,0.4,0.0
+fa-acc_maps-l,I,0.43,0.57
+fa-acc_maps-l,II,0.42,0.55

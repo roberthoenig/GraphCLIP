@@ -1,0 +1,9 @@
+,,avg_score_origimg_to_origprompt,avg_score_advimg_to_advprompt,avg_prompt_diff_origimg,avg_prompt_diff_advimg,acc_rightpromptbetter_origimg,acc_rightpromptbetter_advimg,acc_origprompt_rightimgbetter,acc_advprompt_rightimgbetter,acc_betterthan_baseline_origimg,acc_betterthan_baseline_advimg
+fa-noreweight-l,I,0.43,0.37,0.25,0.14,0.81,0.6,0.77,0.81,0.56,0.57
+fa-noreweight-l,II,0.43,0.37,0.26,0.15,0.8,0.61,0.79,0.82,0.56,0.58
+fa_maps-l,I,0.43,0.37,0.25,0.14,0.81,0.61,0.76,0.8,0.58,0.58
+fa_maps-l,II,0.43,0.37,0.26,0.14,0.8,0.62,0.79,0.8,0.56,0.58
+base-l,I,0.41,0.35,0.21,0.1,0.78,0.56,0.75,0.73,0.0,0.0
+base-l,II,0.41,0.35,0.21,0.09,0.77,0.54,0.73,0.72,0.0,0.0
+fa-acc_maps-l,I,0.42,0.36,0.24,0.12,0.82,0.6,0.75,0.79,0.55,0.55
+fa-acc_maps-l,II,0.42,0.36,0.24,0.13,0.78,0.6,0.76,0.76,0.53,0.55
