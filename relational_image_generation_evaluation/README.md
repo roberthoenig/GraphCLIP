@@ -17,7 +17,8 @@ The package provides a dataset for evaluation and different models.
 The models available are:
 
 * 'ViT-B/32' (finetuned ViT that takes in text embeddings of object names and classifies a fixed set of attributes and relationships)
-* ViT-L/14 (larger finetuned ViT that takes in text embeddings of object names and classifies a fixed set of attributes and relationships)
+* 'ViT-L/14' (larger finetuned ViT that takes in text embeddings of object names and classifies a fixed set of attributes and relationships)
+* 'ViT-L/14-Datacomp' It's the same model than ViT-L, but was pretrained with a newer, better dataset (see openclip). Optimally, use this model.
 
 ## example useage
 

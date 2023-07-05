@@ -29,6 +29,8 @@ class Evaluator:
             self._evaluator = ViTBaseLargeEvaluator(device=self.device, model_weights_path=model_weights_path, size='base')
         elif self.evaluator_name == 'ViT-L/14':
             self._evaluator = ViTBaseLargeEvaluator(device=self.device, model_weights_path=model_weights_path, size='large')
+        elif self.evaluator_name == 'ViT-L/14-Datacomp':
+            self._evaluator = ViTBaseLargeEvaluator(device=self.device, model_weights_path=model_weights_path, size='large')
         elif self.evaluator_name == 'GraphCLIP':
             self._evaluator = GraphCLIPEvaluator(device=self.device, model_weights_path=model_weights_path, **GraphCLIP_config_1)
 
@@ -39,6 +41,8 @@ class Evaluator:
             return 'ViT-Large_Text_Emb_Spring_River.ckpt'   
         elif evaluator_name == 'GraphCLIP':
             return 'GraphCLIP.ckpt'   
+        elif evaluator_name == 'ViT-L/14-Datacomp':
+            return 'ViT-Large_Text_Emb_Vocal_Snow.ckpt'
         else:
             raise Exception(f"Unknown evaluator {evaluator_name}.")
 
