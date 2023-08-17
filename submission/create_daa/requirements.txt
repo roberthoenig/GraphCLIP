@@ -1,0 +1,5 @@
+tqdm
+tkinter
+Pillow
+numpy
+prettyprint
