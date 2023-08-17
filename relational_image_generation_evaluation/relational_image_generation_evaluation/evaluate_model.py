@@ -8,7 +8,6 @@ import os
 from .download_weights import download_weights
 import torch
 import logging
-from tqdm import tqdm
 import open_clip
 from torch_geometric.data import Batch
 from .data import FILTERED_RELATIONSHIPS, FILTERED_OBJECTS, FILTERED_ATTRIBUTES
@@ -33,12 +32,26 @@ class Evaluator:
             self._evaluator = ViTBaseLargeEvaluator(device=self.device, model_weights_path=model_weights_path, size='large')
         elif self.evaluator_name == 'GraphCLIP':
             self._evaluator = GraphCLIPEvaluator(device=self.device, model_weights_path=model_weights_path, **GraphCLIP_config_1)
+        elif self.evaluator_name == 'CLIP_ViT-L/14':
+            self._evaluator = CLIPEvaluator(device=self.device, model='ViT-L-14', pretrained='laion2b_s32b_b82k')
+        elif self.evaluator_name == 'CLIP_ViT-G/14':
+            self._evaluator = CLIPEvaluator(device=self.device, model='ViT-bigG-14', pretrained='laion2b_s39b_b160k')
+        elif self.evaluator_name == 'histogram':
+            self._evaluator = HistogramEvaluator(device=self.device, model_weights_path=model_weights_path)
 
     def _get_weights_name(evaluator_name):
         if evaluator_name == 'ViT-B/32':
             return 'ViT-Base_Text_Emb_Hockey_Fighter.ckpt'     
         elif evaluator_name == 'ViT-L/14':
-            return 'ViT-Large_Text_Emb_Spring_River.ckpt'   
+            return 'ViT-Large_Text_Emb_Spring_River.ckpt'  
+        elif evaluator_name == 'histogram':
+            return 'histogram.ckpt'
+        elif evaluator_name == 'CLIP_ViT-L/14':
+            # CLIP weights are downloaded by open_clip
+            return  'dummy.ckpt'
+        elif evaluator_name == 'CLIP_ViT-G/14':
+            # CLIP weights are downloaded by open_clip
+            return  'dummy.ckpt'
         elif evaluator_name == 'GraphCLIP':
             return 'GraphCLIP.ckpt'   
         elif evaluator_name == 'ViT-L/14-Datacomp':
@@ -50,9 +63,94 @@ class Evaluator:
         score = self._evaluator(images, graphs)
         return score
 
+class HistogramEvaluator:
+    def __init__(self, device, model_weights_path):
+        hists = torch.load(model_weights_path)
+        self.rel_hist = hists['rel_hist']
+        self.attr_hist = hists['attr_hist']
+        
+    def graph_to_rel_strs(self, graph):
+        rel_strs = []
+        for sid, oid in list(graph.edges):
+            os = graph.nodes[sid]['name']
+            oo = graph.nodes[oid]['name']
+            rel = graph.edges[(sid, oid)]['predicate']
+            rel_str = f'{os} {rel} {oo}'.strip().lower()
+            rel_strs.append(rel_str)
+        return rel_strs
+        
+    def graph_to_attr_strs(self, graph):
+        attr_strs = []
+        for nid in list(graph.nodes):
+            node = graph.nodes[nid]
+            name = node['name']
+            for attr in node.get('attributes', []):
+                attr_name_str = f'{attr} {name}'.strip().lower()
+                attr_strs.append(attr_name_str)
+        return attr_strs
+    
+    def __call__(self, images, graphs):
+        scores = []
+        for graph in graphs:
+            rel_strs = self.graph_to_rel_strs(graph)
+            rel_score = 1
+            for rel_str in rel_strs:
+                rel_score *= (1+self.rel_hist.get(rel_str, 0))
+            attr_strs = self.graph_to_attr_strs(graph)
+            attr_score = 1
+            for attr_str in attr_strs:
+                attr_score *= (1+self.attr_hist.get(attr_str, 0))
+            score = rel_score * attr_score
+            scores.append(score)
+        scores_dict = {
+            'overall_scores': scores
+        } 
+        return scores_dict
 
+class CLIPEvaluator:
+    def __init__(self, device, model, pretrained):
+        self.device = device
+        self.model, _, self.preprocessor = open_clip.create_model_and_transforms(model, pretrained=pretrained, device=device)
+        self.tokenizer = open_clip.get_tokenizer(model)
 
-
+    def _emb_txts(self, txts):
+        txt_embs = []
+        for txt in txts:
+            tokenized_text = self.tokenizer([txt]).to(self.device)
+            txt_emb = self.model.encode_text(tokenized_text).cpu()
+            txt_embs.append(txt_emb)
+        txt_embs = torch.concat(txt_embs)
+        return txt_embs
+    
+    def _emb_imgs(self, images):
+        # images: list of PIL images
+        # return: embedding tensor, (length(images), 2048)
+        img_embs = []
+        for img in images:
+            img_emb = self.model.encode_image(self.preprocessor(img).unsqueeze(0).to(self.device)).cpu()
+            img_embs.append(img_emb)
+        img_embs = torch.concat(img_embs)
+        return img_embs
+    
+    def __call__(self, images, graphs):
+        texts = []
+        for g in graphs:
+            txt = g.caption.split('.')[0]
+            texts.append(txt)
+        with torch.no_grad():
+            # (n_samples, emb_sz) 
+            logging.info("Computing image embeddings...")
+            txt_embs = self._emb_txts(texts)
+            img_embs = self._emb_imgs(images)
+            # (n_samples, captions_per_image, emb_sz) 
+            logging.info("Computing caption embeddings...")
+            txt_embs /= txt_embs.norm(dim=-1, keepdim=True)
+            img_embs /= img_embs.norm(dim=-1, keepdim=True)
+        scores = torch.sum(txt_embs * img_embs, dim=1)
+        scores_dict = {
+            'overall_scores': scores.tolist()
+        }    
+        return scores_dict
 
 
 
@@ -195,7 +293,7 @@ class GraphCLIPEvaluator:
         # images: list of PIL images
         # return: embedding tensor, (length(images), 2048)
         img_embs = []
-        for img in tqdm(images):
+        for img in images:
             img_emb = self.img_model.encode_image(self.img_preprocess(img).unsqueeze(0).to(self.device)).cpu()
             img_embs.append(img_emb)
         img_embs = torch.concat(img_embs)
@@ -205,7 +303,7 @@ class GraphCLIPEvaluator:
         # graphs: list of networkx graphs
         # return: embedding tensor, (length(graphs), 2048)
         graph_embs = []
-        for graph in tqdm(graphs):
+        for graph in graphs:
             d = networkx_to_dict(graph)
             data = dict_to_pyg_graph(d, txt_enc=self._txt_enc, use_long_rel_enc=self.use_long_rel_enc)
             if self.transform == "add_master_node_with_bidirectional_edges":

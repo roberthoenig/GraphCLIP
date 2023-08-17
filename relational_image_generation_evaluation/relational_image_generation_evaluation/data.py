@@ -56,6 +56,8 @@ def load_mscoco_graphs(testonly=False):
         print('Using cached filtered graphs')
         return mscoco_graphs
 
+cc500_graphs = None
+
 def load_cc500_graphs(testonly=False):
     if testonly:
         download_cc500_graphs()
@@ -344,8 +346,8 @@ def get_adversarial_attribute_dataset(version='v1'):
         graph.labels[obj1_id] = obj1_name
         graph.add_node(obj2_id, attributes=obj2_attrs, name=obj2_name)
         #### apparently this is needed for Robert's code to work. But as and is not a valid filtered predicate, we don't do that
-        # graph.add_edge(obj1_id, obj2_id, predicate='and')
-        # graph.add_edge(obj2_id, obj1_id, predicate='and')
+        graph.add_edge(obj1_id, obj2_id, predicate='and')
+        graph.add_edge(obj2_id, obj1_id, predicate='and')
         ####
         graph.labels[obj2_id] = obj2_name
         graph_adv = copy_graph(graph)

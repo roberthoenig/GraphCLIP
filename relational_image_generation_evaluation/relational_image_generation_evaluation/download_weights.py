@@ -49,6 +49,11 @@ def download_weights(weights_name):
         gdown.download(url, destination, quiet=False)
         
         
+    elif weights_name == 'histogram.ckpt':
+        file_id = '1B6TRzzppsnwYZ9TrmKz4cTFJ_jJyWDFA'
+        url = f'https://drive.google.com/uc?id={file_id}'
+        gdown.download(url, destination, quiet=False)
+        
         
 
 
