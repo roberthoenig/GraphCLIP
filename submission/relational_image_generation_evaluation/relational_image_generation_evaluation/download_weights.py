@@ -53,7 +53,12 @@ def download_weights(weights_name):
         file_id = '1B6TRzzppsnwYZ9TrmKz4cTFJ_jJyWDFA'
         url = f'https://drive.google.com/uc?id={file_id}'
         gdown.download(url, destination, quiet=False)
-        
+    elif weights_name == 'filtered_object_label_embeddings':
+        text_embeddings_file_id = '1qRcI4XxGwjshiT8IOPf1dUP90JUHCsbE'
+        text_embeddings_url = f'https://drive.google.com/uc?id={text_embeddings_file_id}'
+        text_embeddings_destination = os.path.join(os.path.dirname(__file__), 'data', 'filtered_object_label_embeddings.pt')
+        gdown.download(text_embeddings_url, text_embeddings_destination, quiet=False)
+    
         
 
 
