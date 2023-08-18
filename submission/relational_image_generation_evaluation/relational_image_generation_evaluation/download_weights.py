@@ -47,14 +47,44 @@ def download_weights(weights_name):
         file_id = '1V2MSpU8crjEvFWjmC9hjvwhR_Pio636p'
         url = f'https://drive.google.com/uc?id={file_id}'
         gdown.download(url, destination, quiet=False)
-        
-        
     elif weights_name == 'histogram.ckpt':
         file_id = '1B6TRzzppsnwYZ9TrmKz4cTFJ_jJyWDFA'
         url = f'https://drive.google.com/uc?id={file_id}'
         gdown.download(url, destination, quiet=False)
+    elif weights_name == 'filtered_object_label_embeddings':
+        text_embeddings_file_id = '1qRcI4XxGwjshiT8IOPf1dUP90JUHCsbE'
+        text_embeddings_url = f'https://drive.google.com/uc?id={text_embeddings_file_id}'
+        text_embeddings_destination = os.path.join(os.path.dirname(__file__), 'data', 'filtered_object_label_embeddings.pt')
+        gdown.download(text_embeddings_url, text_embeddings_destination, quiet=False)
         
-        
+
+def build_filtered_graph(g, object_labels, relationship_labels, attribute_labels):
+    G = nx.DiGraph()
+    G.image_id=g.image_id
+    G.image_w = g.image_w
+    G.image_h = g.image_h
+    G.labels = {}
+    for n in g.nodes:
+        if g.labels[n] in object_labels:
+            filtered_attributes = [a for a in g.nodes[n]['attributes'] if a in attribute_labels]
+            G.add_node(n, w=g.nodes[n]['w'], h=g.nodes[n]['h'], x=g.nodes[n]['x'], y=g.nodes[n]['y'], attributes=filtered_attributes, name=g.labels[n])
+            G.labels[n] = g.labels[n]
+    for e in g.edges:
+        if g.edges[e]['predicate'] in relationship_labels and e[0] in G.nodes and e[1] in G.nodes:
+            G.add_edge(e[0], e[1], synsets=g.edges[e]['synsets'].copy() ,relationship_id=g.edges[e]['relationship_id'], predicate=g.edges[e]['predicate'])
+    return G
+
+def filter_graphs(graphs):
+    from .data import FILTERED_ATTRIBUTES, FILTERED_OBJECTS, FILTERED_RELATIONSHIPS
+    import networkx as nx
+    # filter the graphs relationships and objects and attributes to only keep the 100/200 most frequent ones. Remove graphs which have no objects or relationships left after filtering
+    filtered_graphs = []
+    for g in graphs:
+        g_filtered = build_filtered_graph(g, FILTERED_OBJECTS, FILTERED_RELATIONSHIPS, FILTERED_ATTRIBUTES)
+        if len(g_filtered.nodes) > 0 and len(g_filtered.edges) > 0:
+            filtered_graphs.append(g_filtered)
+    return filtered_graphs
+
 
 
 def download_filtered_graphs():
@@ -70,6 +100,14 @@ def download_filtered_graphs():
         test_file_id = '1J2LQhXq8nvF4Bb1BW-I0zMmxdlANej7u'
         url = f'https://drive.google.com/uc?id={test_file_id}'
         gdown.download(url, destination_test, quiet=False)
+    
+    # import torch
+    # graphs = torch.load(destination)
+    # filtered_graphs = filter_graphs(graphs)
+    # torch.save(filtered_graphs, destination)
+    # graphs = torch.load(destination_test)
+    # filtered_graphs = filter_graphs(graphs)
+    # torch.save(filtered_graphs, destination_test)
 
 
 def download_mscoco_graphs():

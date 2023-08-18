@@ -8,6 +8,7 @@ from os.path import dirname, abspath
 d = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(d)
 from relational_image_generation_evaluation.data import FILTERED_OBJECTS, FILTERED_RELATIONSHIPS, FILTERED_ATTRIBUTES, get_adversarial_attribute_dataset
+from relational_image_generation_evaluation.download_weights import download_weights, download_filtered_graphs
 import random
 
 class CustomImageDataset(Dataset):
@@ -21,7 +22,10 @@ class CustomImageDataset(Dataset):
         self.obj_classes = {obj:i for i,obj in enumerate(FILTERED_OBJECTS)}
         self.attr_classes = {attr:i for i,attr in enumerate(FILTERED_ATTRIBUTES)}
         objs = FILTERED_OBJECTS
-        obj_embeddings = torch.load("/local/home/jthomm/GraphCLIP/datasets/visual_genome/processed/filtered_object_label_embeddings.pt")
+        obj_embeddings_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data', 'filtered_object_label_embeddings.pt')
+        if not os.path.exists(obj_embeddings_path):
+            download_weights('filtered_object_label_embeddings')
+        obj_embeddings = torch.load(obj_embeddings_path)
         self.text_embeddings = {obj:torch.tensor(obj_embeddings[i]) for i,obj in enumerate(objs)}
         if compute_occurence_probabilities:
             rel_occurence_probabilities = torch.zeros(len(self.rel_classes))
@@ -144,7 +148,7 @@ def filter_out_adversarial_datasets(filtered_graphs):
 
 def get_dataloader( 
         preprocess_func,
-        filtered_graphs_path="/local/home/jthomm/GraphCLIP/datasets/visual_genome/processed/", 
+        filtered_graphs_path=None, 
         image_dir="/local/home/stuff/visual-genome/VG/",
         mode='bounding_boxes',
         batch_size=64, 
@@ -154,10 +158,14 @@ def get_dataloader(
         get_pure_graphs=False,
     ):
     print("Loading filtered graphs...")
+    if filtered_graphs_path is None:
+        filtered_graphs_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data')
+        if not os.path.exists(filtered_graphs_path):
+            download_filtered_graphs()
     if testing_only:
-        filtered_graphs = torch.load(filtered_graphs_path + "filtered_graphs_test_small.pt") # much faster to load
+        filtered_graphs = torch.load(os.path.join(filtered_graphs_path,"filtered_graphs_test_small.pt")) # much faster to load
     else:
-        filtered_graphs = torch.load(filtered_graphs_path + "filtered_graphs.pt")
+        filtered_graphs = torch.load(os.path.join(filtered_graphs_path, "filtered_graphs.pt"))
     filtered_graphs = filter_out_adversarial_datasets(filtered_graphs)
     train_size = int(0.8 * len(filtered_graphs))
     filtered_graphs_train, filtered_graphs_val = torch.utils.data.random_split(filtered_graphs, [train_size, len(filtered_graphs) - train_size], generator=torch.Generator().manual_seed(42032))
