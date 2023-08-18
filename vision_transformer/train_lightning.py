@@ -1,10 +1,20 @@
-from open_clip.jt_ViT_RelClassifier_lightning import ViT_RelClassifier
+# from open_clip.jt_ViT_RelClassifier_lightning import ViT_RelClassifier
+# from pytorch_lightning.loggers import WandbLogger
+# import os
+# from datetime import datetime
+# from open_clip.transform import image_transform
+# from jt_training import CleanedVisualGenomeDataModule
+from jt_training import get_all_free_gpus_ids
+# import pytorch_lightning as pl
+# import torch
+
+import relational_image_generation_evaluation as rige
+from relational_image_generation_evaluation.vision_transformer.open_clip.jt_ViT_RelClassifier_lightning import ViT_RelClassifier
 from pytorch_lightning.loggers import WandbLogger
 import os
 from datetime import datetime
-from open_clip.transform import image_transform
-from jt_training import CleanedVisualGenomeDataModule
-from jt_training import get_all_free_gpus_ids
+from relational_image_generation_evaluation.vision_transformer.open_clip.transform import image_transform
+from relational_image_generation_evaluation.vision_transformer.jt_training import CleanedVisualGenomeDataModule
 import pytorch_lightning as pl
 import torch
 
@@ -17,7 +27,7 @@ num_epochs = 10
 clip_model_type =  'ViT-L-14' # 'ViT-L-14' #'ViT-g-14' #'ViT-H-14' #'ViT-B/32'
 clip_pretrained_dataset = 'datacomp_xl_s13b_b90k' # 'laion2b_s32b_b82k' # 'laion2b_s34b_b88k'  # 'laion2b_s32b_b79k' # 'laion400m_e32'
 shallow = True
-debug_mode = False # turn this on such that a tiny dataset is loaded such that you can test the code
+debug_mode = True # turn this on such that a tiny dataset is loaded such that you can test the code
 input_mode = 'text_embeddings' # 'bounding_boxes'
 description = f"""
     ViT_RelClassifier with 100 epochs, 200 hidden size, and 128 batch size\n 
@@ -39,7 +49,7 @@ description = f"""
 ### setup CUDA
 torch.set_float32_matmul_precision('medium') # lightning says i should do this, either 'medium' or 'high'
 free_devices = get_all_free_gpus_ids()
-free_devices = [0,2,3,5]
+free_devices = [6]
 os.environ["CUDA_VISIBLE_DEVICES"] = ",".join([str(i) for i in free_devices])
 print(f"Making CUDA devices visible: {free_devices}")
 
@@ -113,7 +123,7 @@ trainer = pl.Trainer(
     max_epochs=num_epochs,
     logger=wandb_logger,
     accelerator="gpu" if torch.cuda.is_available() else 'cpu',
-    devices = 4, # min(4, len(free_devices)) if torch.cuda.is_available() else 1,
+    devices = min(4, len(free_devices)) if torch.cuda.is_available() else 1,
     callbacks=[checkpoint_callback, checkpoint_callback_every_epoch],
     log_every_n_steps=1,
     # strategy='ddp_find_unused_parameters_true',

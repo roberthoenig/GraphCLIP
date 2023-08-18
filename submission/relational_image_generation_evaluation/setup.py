@@ -22,7 +22,6 @@ setup(
         'matplotlib',
         'wandb',
         'open_clip_torch',
-        'torch_geometric',
         'requests',
         'openai-clip',
         # Add all the packages your code depends on

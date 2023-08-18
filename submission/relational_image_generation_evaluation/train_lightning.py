@@ -38,7 +38,7 @@ description = f"""
 ### setup CUDA device visibility
 torch.set_float32_matmul_precision('medium') # lightning recommends either 'medium' or 'high'
 # free_devices = get_all_free_gpus_ids()
-free_devices = []#[3,4,6]
+free_devices = [6]
 os.environ["CUDA_VISIBLE_DEVICES"] = ",".join([str(i) for i in free_devices])
 print(f"Making CUDA devices visible: {free_devices}")
 
@@ -111,8 +111,8 @@ checkpoint_callback_every_epoch = pl.callbacks.ModelCheckpoint(
 trainer = pl.Trainer(
     max_epochs=num_epochs,
     logger=wandb_logger,
-    accelerator="cpu",#"gpu" if torch.cuda.is_available() else 'cpu',
-    # devices = min(4, len(free_devices)) if torch.cuda.is_available() else 1,
+    accelerator="gpu" if torch.cuda.is_available() else 'cpu',
+    devices = min(4, len(free_devices)) if torch.cuda.is_available() else 1,
     callbacks=[checkpoint_callback, checkpoint_callback_every_epoch],
     log_every_n_steps=1,
     accumulate_grad_batches=1,

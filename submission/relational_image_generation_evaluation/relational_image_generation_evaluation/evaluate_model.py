@@ -9,7 +9,6 @@ from .download_weights import download_weights
 import torch
 import logging
 import open_clip
-from torch_geometric.data import Batch
 from .data import FILTERED_RELATIONSHIPS, FILTERED_OBJECTS, FILTERED_ATTRIBUTES
 
 def get_free_gpu(min_mem=9000):
