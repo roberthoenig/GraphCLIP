@@ -34,6 +34,19 @@ def get_free_gpu(min_mem=9000):
         print("Could not get free GPU, using CPU")
         return torch.device("cpu")
 
+def get_all_free_gpus_ids(min_mem=23000):
+    try:
+        with NamedTemporaryFile() as f:
+            os.system(f"nvidia-smi -q -d Memory | grep -A5 GPU | grep Free > {f.name}")
+            memory_available = [int(x.split()[2]) for x in open(f.name, 'r').readlines()]
+        if max(memory_available) < min_mem:
+            print("Could not get any free GPU, probably results in a crash")
+            return []
+        return [i for i, mem in enumerate(memory_available) if mem > min_mem]
+    except:
+        print("Could not get any free GPU, probably results in a crash")
+        return []
+
 def train_one_epoch(model, dataloader, criterion, optimizer, device, scaler, epoch):
 
     model.train()
@@ -54,7 +67,8 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, scaler, epo
         optimizer.zero_grad()
 
         # Forward pass with autocasting to enable mixed precision training
-        with autocast():
+        # with autocast():
+        with torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16) as autocast, torch.backends.cuda.sdp_kernel(enable_flash=False) as disable:
             outputs = model(inputs, bounding_boxes)
             rel, obj_1, obj_2 = outputs
             _, rel_preds = torch.max(rel, 1)
@@ -112,7 +126,7 @@ def evaluate(model, dataloader, criterion, device, epoch):
     running_corrects_obj_2 = 0
 
     with torch.no_grad():
-        for inputs, bounding_boxes, lrels, lobj1s, lobj2s in dataloader:
+        for inputs, bounding_boxes, lrels, lobj1s, lobj2s in tqdm(dataloader):
             inputs = inputs.to(device)
             bounding_boxes = bounding_boxes.to(device)
             lrels = lrels.to(device)
