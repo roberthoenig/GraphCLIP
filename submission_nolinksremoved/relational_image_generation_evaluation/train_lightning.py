@@ -9,8 +9,8 @@ import pytorch_lightning as pl
 import torch
 
 ############################################################################
-image_dir = "your_image_dir"
-run_logs_dir = "your_run_logs_dir"
+image_dir = "/local/home/jthomm/GraphCLIP/datasets/visual_genome/raw/VG/"
+run_logs_dir = "/local/home/jthomm/GraphCLIP/experiments/"
 
 num_epochs = 10
 clip_model_type =  'ViT-L-14' # 'ViT-L-14' #'ViT-g-14' #'ViT-H-14' #'ViT-B/32'
@@ -51,7 +51,7 @@ run_name = f"vision_transformer_{run_id}"
 run_folder = f"{date_folder}/{run_name}"
 os.makedirs(run_folder)
 
-wandb_logger = WandbLogger(project='yourproject', entity='yourentity', save_dir=run_folder, notes=description)
+wandb_logger = WandbLogger(project='ResearchAssistant', entity='jthomm', save_dir=run_folder, notes=description)
 
 # Create the model
 model = ViT_RelClassifier(

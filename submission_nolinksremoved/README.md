@@ -57,14 +57,6 @@ samples. To reproduce these steps, do the following:
    updates `daa_user_selected.json`.
 7. `daa_user_selected.json` is the final dataset.
 
-## Install and use the EPViT package
-
-See the Readme in relational_imge_generation_evaluation
-
-## Train EPViT
-
-See the Readme in relational_imge_generation_evaluation
-
 ## Experiment: Comparison between EPViT, CLIP and histogram
 
 To reproduce the comparison of different text-image alignment evaluators,

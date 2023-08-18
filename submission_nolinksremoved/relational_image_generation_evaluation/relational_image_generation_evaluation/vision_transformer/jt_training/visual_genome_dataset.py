@@ -149,7 +149,7 @@ def filter_out_adversarial_datasets(filtered_graphs):
 def get_dataloader( 
         preprocess_func,
         filtered_graphs_path=None, 
-        image_dir="your_image_dir",
+        image_dir="/local/home/stuff/visual-genome/VG/",
         mode='bounding_boxes',
         batch_size=64, 
         num_workers=8, 
